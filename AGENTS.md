@@ -1,5 +1,5 @@
 - Pong for Windows x64. All game code is x86-64 MASM in `src/pong.asm`: Win32 window, GDI `StretchDIBits` for a 320x240 framebuffer at 3x, no C runtime.
-- Build: `cargo +nightly -Zscript tools/build.rs` makes `target/pong.exe`. `tools/build.rs run` builds and starts it. Run it from this folder. It finds `ml64` and `link` from the Visual Studio C++ build tools and the Windows SDK.
+- Build: `tools/build.ps1` makes `target/pong.exe`. `tools/build.ps1 run` builds and starts it. It works from any folder. It finds `ml64` and `link` with `vswhere` (Visual Studio C++ build tools) and the x64 libs of the newest Windows 10 SDK.
 - No comment, anywhere. No `;` comment, no `COMMENT` block. What the code does, why, a derivation, a measurement: they go in the commit message. The `shhhh` tool does not read assembly, so no hook blocks a comment: remove it yourself.
 - The code is the documentation. A fact lives in a descriptive name with units, an `equ` constant, a `STRUCT`, or an assert.
 - Asserts: use the `assert_*` macros (`ud2` at the bug location) at run time and `.ERRNZ` / `.ERRE` at assembly time. Each procedure that calls has a `frame_alignment_check`.
@@ -9,6 +9,6 @@
 - ZII: all game state is in `.data?`, so the zero state is the correct start state.
 - Order name words broad → specific: `paddle_left_tick`, not `tick_left_paddle`. Names carry units: `ball_vel_x_px_per_tick`. Labels in a procedure start with the procedure name.
 - Select the simpler result. Write the concrete case first; extract a procedure only after 2–3 real occurrences.
-- One-off scripts must be nightly Rust scripts (`tools/build.rs` form). No Python, no shell scripts.
+- Scripts: the build script is PowerShell (`tools/build.ps1`). A one-off script is a nightly Rust script: one `.rs` file with the `#!/usr/bin/env -S cargo +nightly -Zscript` line and an inline `---` manifest. No Python.
 - Write all prose and messages to the user in ASD-STE100 Simplified Technical English.
 - Commit to `main` as work lands.

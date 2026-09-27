@@ -11,7 +11,7 @@ $source_path = Join-Path $repo_dir 'src\pong.asm'
 $target_dir = Join-Path $repo_dir 'target'
 $object_path = Join-Path $target_dir 'pong.obj'
 $exe_path = Join-Path $target_dir 'pong.exe'
-$link_libs = 'kernel32.lib', 'user32.lib', 'gdi32.lib', 'dwmapi.lib'
+$link_libs = 'kernel32.lib', 'user32.lib', 'gdi32.lib', 'dwmapi.lib', 'winmm.lib'
 
 $vswhere_path = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
 if (-not (Test-Path $vswhere_path)) { throw "vswhere.exe not found: install Visual Studio with the C++ build tools" }

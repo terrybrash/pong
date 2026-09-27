@@ -33,13 +33,16 @@ fn build_mode_parse(args: &[String]) -> Result<BuildMode, String> {
 }
 
 fn msvc_tool_command(tool_name: &str) -> Command {
-    let tool = cc::windows_registry::find_tool(MSVC_TARGET, tool_name)
-        .unwrap_or_else(|| panic!("{tool_name} not found: install the Visual Studio C++ build tools"));
+    let tool = cc::windows_registry::find_tool(MSVC_TARGET, tool_name).unwrap_or_else(|| {
+        panic!("{tool_name} not found: install the Visual Studio C++ build tools")
+    });
     tool.to_command()
 }
 
 fn command_run(mut command: Command, step_name: &str) -> Result<(), String> {
-    let status = command.status().map_err(|error| format!("{step_name} did not start: {error}"))?;
+    let status = command
+        .status()
+        .map_err(|error| format!("{step_name} did not start: {error}"))?;
     match status.success() {
         true => Ok(()),
         false => Err(format!("{step_name} failed with {status}")),
@@ -47,18 +50,32 @@ fn command_run(mut command: Command, step_name: &str) -> Result<(), String> {
 }
 
 fn build() -> Result<(), String> {
-    assert!(Path::new(SOURCE_PATH).is_file(), "run from the pong folder: {SOURCE_PATH} is missing");
-    std::fs::create_dir_all(TARGET_DIR).map_err(|error| format!("{TARGET_DIR} not made: {error}"))?;
+    assert!(
+        Path::new(SOURCE_PATH).is_file(),
+        "run from the pong folder: {SOURCE_PATH} is missing"
+    );
+    std::fs::create_dir_all(TARGET_DIR)
+        .map_err(|error| format!("{TARGET_DIR} not made: {error}"))?;
 
     let mut assemble = msvc_tool_command("ml64.exe");
-    assemble.args(["/nologo", "/c", "/Zi", "/W3", "/WX"]).arg(format!("/Fo{OBJECT_PATH}")).arg(SOURCE_PATH);
+    assemble
+        .args(["/nologo", "/c", "/Zi", "/W3", "/WX"])
+        .arg(format!("/Fo{OBJECT_PATH}"))
+        .arg(SOURCE_PATH);
     command_run(assemble, "ml64")?;
 
     let mut link = msvc_tool_command("link.exe");
-    link.args(["/nologo", "/subsystem:windows", "/entry:main_entry", "/nodefaultlib", "/debug", "/incremental:no"])
-        .arg(format!("/out:{EXE_PATH}"))
-        .arg(OBJECT_PATH)
-        .args(LINK_LIBS);
+    link.args([
+        "/nologo",
+        "/subsystem:windows",
+        "/entry:main_entry",
+        "/nodefaultlib",
+        "/debug",
+        "/incremental:no",
+    ])
+    .arg(format!("/out:{EXE_PATH}"))
+    .arg(OBJECT_PATH)
+    .args(LINK_LIBS);
     command_run(link, "link")
 }
 

@@ -1,4 +1,4 @@
-- Pong for Windows x64. All game code is x86-64 MASM in `pong.asm`: Win32 window, GDI `StretchDIBits` for a 320x240 framebuffer at 3x, no C runtime.
+- Pong for Windows x64. All game code is x86-64 MASM in `src/pong.asm` and the `src/*.inc` files it includes: Win32 window, GDI `StretchDIBits` for a 320x240 framebuffer at 3x, no C runtime.
 - Build: `build.ps1` makes `target/pong.exe`. `build.ps1 run` builds and starts it. It works from any folder. It finds `ml64` and `link` with `vswhere` (Visual Studio C++ build tools) and the x64 libs of the newest Windows 10 SDK.
 - No comment, anywhere. No `;` comment, no `COMMENT` block. What the code does, why, a derivation, a measurement: they go in the commit message. The `shhhh` tool does not read assembly, so no hook blocks a comment: remove it yourself.
 - The code is the documentation. A fact lives in a descriptive name with units, an `equ` constant, a `STRUCT`, or an assert.

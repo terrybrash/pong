@@ -7,7 +7,8 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $repo_dir = $PSScriptRoot
-$source_path = Join-Path $repo_dir 'pong.asm'
+$source_dir = Join-Path $repo_dir 'src'
+$source_path = Join-Path $source_dir 'pong.asm'
 $target_dir = Join-Path $repo_dir 'target'
 $object_path = Join-Path $target_dir 'pong.obj'
 $exe_path = Join-Path $target_dir 'pong.exe'
@@ -32,7 +33,7 @@ if (-not $sdk_lib_dir) { throw "no Windows 10 SDK with x64 libs in $sdk_root_dir
 
 New-Item -ItemType Directory -Force $target_dir | Out-Null
 
-& $ml64_path /nologo /c /Zi /W3 /WX "/I$repo_dir" "/Fo$object_path" $source_path
+& $ml64_path /nologo /c /Zi /W3 /WX "/I$source_dir" "/Fo$object_path" $source_path
 if ($LASTEXITCODE -ne 0) { throw "ml64 failed with exit code $LASTEXITCODE" }
 
 & $link_path /nologo /subsystem:windows /entry:main_entry /nodefaultlib /debug /incremental:no "/libpath:$sdk_lib_dir" "/out:$exe_path" $object_path @link_libs

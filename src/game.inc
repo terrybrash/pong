@@ -5,7 +5,7 @@ GHOST_LIFE_TICKS                    equ 14
 GHOST_LEVEL_BASE                    equ 40
 GHOST_LEVEL_PER_TICK                equ 12
 .ERRE GHOST_LEVEL_BASE + GHOST_LEVEL_PER_TICK * GHOST_LIFE_TICKS LE COLOR_LEVEL_FULL
-CPU_REACTION_TICKS                  equ 14
+CPU_REACTION_TICKS                  equ 18
 SERVE_WAIT_TICKS                    equ 150
 SERVE_BLINK_BIT_MASK                equ 8
 SERVE_REEL_START_TICK               equ 2
@@ -16,7 +16,32 @@ SERVE_REEL_SLOWDOWN_DIVISOR         equ 3
 SERVE_REEL_TICK_SEMITONE            equ 12
 SERVE_REEL_BOUNCE_TICKS             equ 5
 SERVE_REEL_ARPEGGIO_EXTRA_NOTES     equ 2
-POINT_SCORED_TICKS                  equ 100
+POINT_SCORED_TICKS                  equ 90
+LEVEL_UP_TICKS                      equ 180
+SPIN_TICKS                          equ 40
+POWER_AURA_PERIOD_TICKS_MASK        equ 1
+POWER_DEBRIS_PERIOD_TICKS           equ 5
+POWER_CHARGE_SOUND_PERIOD_TICKS     equ 12
+POWER_CHARGE_SOUND_SEMITONE_START   equ -12
+POWER_PULSE_PERIOD_TICKS            equ 30
+POWER_RAY_COUNT                     equ 14
+POWER_RAY_WIDTH_LINES               equ 3
+POWER_BOLT_COUNT                    equ 3
+POWER_BOLT_SEGMENT_COUNT            equ 5
+POWER_ROAR_AURA_TICKS               equ 60
+DASH_SPEED_LINE_COUNT               equ 5
+FIGHTER_IDLE_TICKS_OFFSET_PER_SIDE  equ 37
+CPU_AIM_SAME_SIDE_PERCENT           equ 30
+POWER_SHAKE_TICKS                   equ 4
+POWER_RAY_GROW_SHIFT                equ 3
+POWER_BOLT_START_TICKS              equ 50
+POWER_BOLT_SHOW_BIT                 equ 40000000h
+POWER_AURA_COLOR_SHIFT              equ 30
+POWER_DEBRIS_COLOR_SHIFT            equ 31
+POWER_BOLT_COLOR_SHIFT              equ 31
+POWER_RAYS_LOCAL_ANGLE              equ CALL_ARG6
+POWER_RAYS_LOCAL_COS                equ CALL_ARG6 + 4
+POWER_BOLTS_LOCAL_SEGMENTS_LEFT     equ CALL_ARG6
 POINT_BIG_MIN                       equ 2
 POINT_JACKPOT_MIN                   equ 5
 POINT_ARPEGGIO_EXTRA_NOTES          equ 2
@@ -43,30 +68,30 @@ BALL_HIT_LOCAL_TARGET_Z             equ FRAME_7_ARGS_EVEN_PUSHES_BYTES + 4
 BALL_HIT_LOCAL_AIM_RANGE            equ FRAME_7_ARGS_EVEN_PUSHES_BYTES + 8
 
 .const
-gravity_u_per_s2                    REAL4 16.0
-ball_radius_u                       REAL4 0.22
-ball_pop_extra_radius_u             REAL4 0.08
-serve_height_u                      REAL4 3.4
+gravity_u_per_s2                    REAL4 10.0
+ball_radius_u                       REAL4 0.3
+ball_pop_extra_radius_u             REAL4 0.15
+serve_height_u                      REAL4 4.0
 serve_hover_bob_u                   REAL4 0.12
 serve_hover_radians_per_tick        REAL4 0.08
-serve_flight_s                      REAL4 1.6
-serve_target_x_spread_u             REAL4 3.5
-serve_target_depth_u                REAL4 5.5
+serve_flight_s                      REAL4 2.0
+serve_target_x_spread_u             REAL4 10.0
+serve_target_depth_u                REAL4 11.0
 net_clearance_u                     REAL4 0.6
-fighter_x_limit_u                   REAL4 8.0
-fighter_z_near_net_u                REAL4 0.8
-fighter_z_back_u                    REAL4 11.5
-fighter_start_z_u                   REAL4 6.0
+fighter_x_limit_u                   REAL4 16.0
+fighter_z_near_net_u                REAL4 1.2
+fighter_z_back_u                    REAL4 23.0
+fighter_start_z_u                   REAL4 12.0
 fighter_hit_height_u                REAL4 1.0
 fighter_accel_per_tick              REAL4 0.2
 fighter_turn_per_tick               REAL4 0.25
-fighter_walk_radians_per_u          REAL4 3.5
+fighter_walk_radians_per_u          REAL4 2.4
 fighter_facing_min_length           REAL4 0.01
 fighter_direction_epsilon           REAL4 0.0001
 fighter_diagonal_factor             REAL4 0.70710678
 fighter_dash_dust_speed_u_per_s     REAL4 -2.0
 fighter_dash_dust_height_u          REAL4 0.1
-fighter_shadow_radius_u             REAL4 0.5
+fighter_shadow_radius_u             REAL4 0.55
 reach_per_big_reach_level_u         REAL4 0.25
 reach_per_shrink_level_u            REAL4 0.15
 reach_min_u                         REAL4 0.5
@@ -75,24 +100,25 @@ run_speed_per_quick_level           REAL4 0.12
 run_speed_factor_max                REAL4 2.0
 dash_cooldown_per_level             REAL4 0.2
 dash_cooldown_factor_min            REAL4 0.35
-aim_range_per_wide_aim_level_u      REAL4 0.8
-aim_depth_min_u                     REAL4 2.2
-aim_depth_range_u                   REAL4 6.1
-aim_x_limit_u                       REAL4 5.4
-aim_random_x_u                      REAL4 0.5
+aim_range_per_wide_aim_level_u      REAL4 1.6
+aim_depth_min_u                     REAL4 3.0
+aim_depth_range_u                   REAL4 14.4
+aim_x_limit_u                       REAL4 11.5
+aim_random_x_u                      REAL4 1.0
 aim_depth_center                    REAL4 0.55
 aim_depth_facing_weight             REAL4 0.4
 aim_depth_random                    REAL4 0.15
-cpu_aim_away_factor                 REAL4 -0.6
-cpu_aim_random_factor               REAL4 0.6
+cpu_aim_edge_min                    REAL4 0.55
+cpu_aim_edge_spread                 REAL4 0.45
+cpu_aim_range_factor                REAL4 1.4
 cpu_depth_center                    REAL4 0.5
-cpu_depth_random                    REAL4 0.45
-cpu_error_u                         REAL4 0.55
-cpu_home_z_u                        REAL4 5.5
+cpu_depth_random                    REAL4 0.65
+cpu_error_u                         REAL4 1.3
+cpu_home_z_u                        REAL4 11.0
 cpu_speed_factor                    REAL4 0.92
-cpu_slow_radius_u                   REAL4 0.6
+cpu_slow_radius_u                   REAL4 0.8
 cpu_arrive_radius_u                 REAL4 0.12
-cpu_dash_distance_min_u             REAL4 1.6
+cpu_dash_distance_min_u             REAL4 3.0
 cpu_dash_time_margin                REAL4 1.1
 flight_factor_per_combo             REAL4 0.025
 flight_factor_min                   REAL4 0.6
@@ -100,19 +126,57 @@ crit_flight_factor                  REAL4 0.6
 power_flight_factor_per_level       REAL4 0.07
 power_flight_factor_min             REAL4 0.5
 ball_spin_radians_per_s             REAL4 9.0
-shield_revault_flight_s             REAL4 1.3
-shield_revault_x_spread_u           REAL4 4.0
-shield_revault_depth_u              REAL4 5.5
+shield_revault_flight_s             REAL4 1.8
+shield_revault_x_spread_u           REAL4 8.0
+shield_revault_depth_u              REAL4 11.0
 particle_hit_speed_factor           REAL4 0.15
-ball_shadow_radius_max_u            REAL4 0.38
+ball_shadow_radius_max_u            REAL4 0.45
 ball_shadow_shrink_per_u            REAL4 0.03
 ball_shadow_radius_min_u            REAL4 0.1
-landing_marker_radius_u             REAL4 0.7
-landing_marker_pulse_u              REAL4 0.15
+landing_marker_radius_u             REAL4 1.1
+landing_marker_pulse_u              REAL4 0.2
 landing_marker_pulse_radians_per_tick REAL4 0.3
 landing_marker_height_u             REAL4 0.03
+power_shake_base_px                 REAL4 0.4
+power_shake_px_per_tick             REAL4 0.02
+power_chest_height_u                REAL4 1.1
+power_aura_radius_u                 REAL4 0.55
+power_aura_base_u                   REAL4 0.1
+power_aura_height_u                 REAL4 1.9
+power_debris_radius_u               REAL4 2.4
+power_debris_height_u               REAL4 0.05
+power_pulse_ring_speed_u_per_tick   REAL4 0.09
+power_roar_ring_fast_speed_u_per_tick REAL4 0.5
+power_roar_ring_middle_speed_u_per_tick REAL4 0.32
+power_roar_ring_slow_speed_u_per_tick REAL4 0.18
+power_ray_spacing_radians           REAL4 0.44879895
+.ERRNZ POWER_RAY_COUNT - 14
+power_ray_width_radians             REAL4 0.012
+power_ray_radians_per_tick          REAL4 0.01
+power_ray_length_px                 REAL4 420.0
+power_bolt_offset_u                 REAL4 0.7
+power_bolt_base_u                   REAL4 0.3
+power_bolt_height_u                 REAL4 1.7
+power_bolt_step_u                   REAL4 0.3
+fighter_spin_total_radians          REAL4 12.566371
+dash_line_offset_u                  REAL4 0.45
+dash_line_base_u                    REAL4 0.2
+dash_line_height_u                  REAL4 1.5
+dash_line_length_u                  REAL4 2.4
+hit_ring_speed_u_per_tick           REAL4 0.14
+point_ring_fast_speed_u_per_tick    REAL4 0.4
+point_ring_slow_speed_u_per_tick    REAL4 0.22
+dash_ring_speed_u_per_tick          REAL4 0.08
+power_aura_colors                   DWORD PALETTE_YELLOW_BGRA, PALETTE_YELLOW_BGRA, PALETTE_WHITE_BGRA, PALETTE_ORANGE_BGRA
+.ERRNZ LENGTHOF power_aura_colors - (1 SHL (32 - POWER_AURA_COLOR_SHIFT))
+power_debris_colors                 DWORD PALETTE_SLATE_BGRA, PALETTE_SILVER_BGRA
+.ERRNZ LENGTHOF power_debris_colors - (1 SHL (32 - POWER_DEBRIS_COLOR_SHIFT))
+power_bolt_colors                   DWORD PALETTE_CYAN_BGRA, PALETTE_WHITE_BGRA
+.ERRNZ LENGTHOF power_bolt_colors - (1 SHL (32 - POWER_BOLT_COLOR_SHIFT))
+power_ray_colors                    DWORD PALETTE_YELLOW_BGRA, PALETTE_ORANGE_BGRA
+power_ray_release_colors            DWORD PALETTE_WHITE_BGRA, PALETTE_YELLOW_BGRA
 ball_flame_back_factor              REAL4 -0.1
-ball_heat_color_bgra                DWORD 00F0F0F0h, 00FFE070h, 00FFA040h, 00FF4838h
+ball_heat_color_bgra                DWORD PALETTE_WHITE_BGRA, PALETTE_YELLOW_BGRA, PALETTE_ORANGE_BGRA, PALETTE_RED_BGRA
 BALL_HEAT_COLOR_COUNT               equ LENGTHOF ball_heat_color_bgra
 serve_reel_weighted_multipliers     DWORD 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 5
 SERVE_REEL_WEIGHTED_COUNT           equ LENGTHOF serve_reel_weighted_multipliers
@@ -148,6 +212,7 @@ ball_trail                          VEC3 BALL_TRAIL_LENGTH DUP (<>)
 ball_trail_next_index               DWORD ?
 ball_trail_count                    DWORD ?
 fighter_pose                        POSE <>
+power_scene_ticks                   DWORD ?
 ball_marker_center                  VEC3 <>
 ball_marker_half                    VEC3 <>
 
@@ -221,7 +286,12 @@ game_tick_effects:
     call players_stats_update
     call effects_tick
     call music_state_update
+    call power_scene_active_check
     movss xmm0, camera_ease_per_tick
+    test eax, eax
+    jz game_tick_camera
+    movss xmm0, camera_power_ease_per_tick
+game_tick_camera:
     call camera_update_tick
     cmp hit_stop_ticks_left, 0
     je game_tick_slow_mo
@@ -251,6 +321,8 @@ game_tick_mode:
     je game_tick_rally
     cmp eax, MATCH_MODE_POINT_SCORED
     je game_tick_point_scored
+    cmp eax, MATCH_MODE_LEVEL_UP
+    je game_tick_level_up
     cmp eax, MATCH_MODE_UPGRADE_CHOOSE
     je game_tick_upgrade_choose
     cmp eax, MATCH_MODE_UPGRADE_TAKEN
@@ -288,10 +360,17 @@ game_tick_point_scored:
     xor ecx, SIDE_FLIP
     player_address_load rax, ecx
     cmp (PLAYER PTR [rax]).score, MATCH_WINNING_SCORE
-    jb game_tick_point_scored_offer
+    jb game_tick_point_scored_level_up
     match_mode_set MATCH_MODE_OVER
     jmp game_tick_done
-game_tick_point_scored_offer:
+game_tick_point_scored_level_up:
+    call power_scene_start
+    jmp game_tick_done
+
+game_tick_level_up:
+    call power_scene_tick
+    cmp match_mode_ticks, LEVEL_UP_TICKS
+    jb game_tick_done
     match_mode_set MATCH_MODE_UPGRADE_CHOOSE
     mov upgrade_offer_cursor, 0
     mov upgrade_rerolls_left, UPGRADE_REROLLS_PER_PICK
@@ -300,13 +379,17 @@ game_tick_point_scored_offer:
     jmp game_tick_done
 
 game_tick_upgrade_choose:
+    call power_scene_tick
     call upgrade_choose_tick
     jmp game_tick_done
 
 game_tick_upgrade_taken:
+    call power_scene_tick
     cmp match_mode_ticks, UPGRADE_TAKEN_TICKS
     jb game_tick_done
     match_mode_set MATCH_MODE_SERVE_WAIT
+    movss xmm0, float_one
+    call camera_update_tick
     jmp game_tick_done
 
 game_tick_over:
@@ -323,6 +406,20 @@ game_tick_return:
     pop rbx
     ret
 game_tick ENDP
+
+power_scene_active_check PROC
+    xor eax, eax
+    mov ecx, match_mode
+    cmp ecx, MATCH_MODE_LEVEL_UP
+    jb power_scene_active_check_done
+    cmp ecx, MATCH_MODE_UPGRADE_TAKEN
+    ja power_scene_active_check_done
+    mov eax, 1
+power_scene_active_check_done:
+    ret
+power_scene_active_check ENDP
+.ERRNZ MATCH_MODE_UPGRADE_CHOOSE - MATCH_MODE_LEVEL_UP - 1
+.ERRNZ MATCH_MODE_UPGRADE_TAKEN - MATCH_MODE_UPGRADE_CHOOSE - 1
 
 players_stats_update PROC
     push rbx
@@ -444,6 +541,11 @@ fighter_move_dash_check:
     movss xmm1, fighter_dash_dust_height_u
     movss xmm2, (PLAYER PTR [rbx]).pos_z_u
     particles_spawn_call particles_dash, COLOR_WHITE_BGRA, xmm4, xmm5
+    movss xmm0, (PLAYER PTR [rbx]).pos_x_u
+    movss xmm1, (PLAYER PTR [rbx]).pos_z_u
+    movss xmm2, dash_ring_speed_u_per_tick
+    mov r9d, COLOR_WHITE_BGRA
+    call shockwave_spawn
 
 fighter_move_velocity:
     cmp (PLAYER PTR [rbx]).dash_ticks_left, 0
@@ -1008,13 +1110,23 @@ ball_hit PROC
     addss xmm0, xmm1
     jmp ball_hit_aim_ready
 ball_hit_cpu_aim:
+    random_unit_float_to xmm0
+    mulss xmm0, cpu_aim_edge_spread
+    addss xmm0, cpu_aim_edge_min
+    mulss xmm0, dword ptr [rsp + BALL_HIT_LOCAL_AIM_RANGE]
+    mulss xmm0, cpu_aim_range_factor
     lea rax, players[SIZEOF PLAYER * SIDE_NEAR]
-    movss xmm0, (PLAYER PTR [rax]).pos_x_u
-    mulss xmm0, cpu_aim_away_factor
-    random_signed_unit_float_to xmm1
-    mulss xmm1, dword ptr [rsp + BALL_HIT_LOCAL_AIM_RANGE]
-    mulss xmm1, cpu_aim_random_factor
-    addss xmm0, xmm1
+    xorps xmm1, xmm1
+    comiss xmm1, (PLAYER PTR [rax]).pos_x_u
+    ja ball_hit_cpu_aim_side_away
+    xorps xmm0, xmmword ptr float_sign_mask_x4
+ball_hit_cpu_aim_side_away:
+    mov ecx, PERCENT_COUNT
+    random_below_to_eax ecx
+    cmp eax, CPU_AIM_SAME_SIDE_PERCENT
+    jae ball_hit_cpu_aim_side_ready
+    xorps xmm0, xmmword ptr float_sign_mask_x4
+ball_hit_cpu_aim_side_ready:
     movss dword ptr [rsp + BALL_HIT_LOCAL_TARGET_X], xmm0
     random_signed_unit_float_to xmm0
     mulss xmm0, cpu_depth_random
@@ -1072,6 +1184,11 @@ ball_hit_punch_crit_check:
     lea rcx, punch_cpu_crit
 ball_hit_punch:
     call screen_punch
+    movss xmm0, ball_pos.x
+    movss xmm1, ball_pos.z
+    movss xmm2, hit_ring_speed_u_per_tick
+    side_color_load r9d, rbx
+    call shockwave_spawn
 
     movss xmm4, ball_vel_u_per_s.x
     mulss xmm4, particle_hit_speed_factor
@@ -1086,6 +1203,7 @@ ball_hit_punch:
     particles_spawn_call particles_hit, eax, xmm4, xmm5
     jmp ball_hit_sound
 ball_hit_crit_effects:
+    mov (PLAYER PTR [rsi]).spin_ticks_left, SPIN_TICKS
     particles_spawn_call particles_crit, COLOR_BLACK_BGRA, xmm4, xmm5
     inc match_crit_count
     movss xmm0, ball_pos.x
@@ -1240,6 +1358,18 @@ point_score_burst:
     movss xmm2, ball_pos.z
     particles_spawn_call particles_land, eax
     movss xmm0, ball_pos.x
+    movss xmm1, ball_pos.z
+    movss xmm2, point_ring_fast_speed_u_per_tick
+    mov eax, ebx
+    xor eax, SIDE_FLIP
+    side_color_load r9d, rax
+    call shockwave_spawn
+    movss xmm0, ball_pos.x
+    movss xmm1, ball_pos.z
+    movss xmm2, point_ring_slow_speed_u_per_tick
+    mov r9d, COLOR_GOLD_BGRA
+    call shockwave_spawn
+    movss xmm0, ball_pos.x
     movss xmm1, ball_pos.y
     movss xmm2, ball_pos.z
     call screen_position_from_world
@@ -1308,11 +1438,377 @@ ball_heat_index_get PROC
     ret
 ball_heat_index_get ENDP
 
+power_scene_start PROC
+    push rbx
+    sub rsp, FRAME_6_ARGS_ODD_PUSHES_BYTES
+    frame_alignment_check 1, FRAME_6_ARGS_ODD_PUSHES_BYTES
+    match_mode_set MATCH_MODE_LEVEL_UP
+    mov power_scene_ticks, 0
+    movss xmm0, float_one
+    call camera_update_tick
+    xor ebx, ebx
+power_scene_start_player:
+    player_address_load rax, ebx
+    xorps xmm0, xmm0
+    movss (PLAYER PTR [rax]).vel_x_u_per_s, xmm0
+    movss (PLAYER PTR [rax]).vel_z_u_per_s, xmm0
+    movss (PLAYER PTR [rax]).walk_amount, xmm0
+    mov (PLAYER PTR [rax]).dash_ticks_left, 0
+    mov (PLAYER PTR [rax]).swing_ticks_left, 0
+    inc ebx
+    cmp ebx, SIDE_COUNT
+    jb power_scene_start_player
+    screen_punch_call punch_level_up
+    xorps xmm2, xmm2
+    movss xmm3, popup_banner_top_y_px
+    popup_spawn_call text_popup_level_up, POPUP_NO_NUMBER, popup_style_jackpot
+    audio_play_call sound_rise, 0, VOLUME_LOUD, 0
+    audio_play_call sound_boom, AUDIO_SEMITONE_MIN, VOLUME_LOUD, 0
+    mov ecx, AUDIO_ARPEGGIO_NOTE_COUNT
+    xor edx, edx
+    call audio_arpeggio_play
+    add rsp, FRAME_6_ARGS_ODD_PUSHES_BYTES
+    pop rbx
+    ret
+power_scene_start ENDP
+
+power_scene_tick PROC
+    push rbx
+    push rsi
+    sub rsp, FRAME_7_ARGS_EVEN_PUSHES_BYTES
+    frame_alignment_check 2, FRAME_7_ARGS_EVEN_PUSHES_BYTES
+    inc power_scene_ticks
+    mov ecx, match_point_loser_side
+    player_address_load rbx, ecx
+    mov esi, match_mode_ticks
+    cmp match_mode, MATCH_MODE_UPGRADE_TAKEN
+    je power_scene_tick_roar
+
+    cmp match_mode, MATCH_MODE_LEVEL_UP
+    jne power_scene_tick_aura
+    mov eax, power_scene_ticks
+    mov ecx, POWER_CHARGE_FULL_TICKS
+    cmp eax, ecx
+    cmova eax, ecx
+    cvtsi2ss xmm0, eax
+    mulss xmm0, power_shake_px_per_tick
+    addss xmm0, power_shake_base_px
+    mov ecx, POWER_SHAKE_TICKS
+    call screen_shake_start
+power_scene_tick_aura:
+    mov rcx, rbx
+    call power_aura_spawn
+    mov eax, power_scene_ticks
+    xor edx, edx
+    mov ecx, POWER_DEBRIS_PERIOD_TICKS
+    div ecx
+    test edx, edx
+    jnz power_scene_tick_charge_sound
+    mov rcx, rbx
+    call power_debris_spawn
+power_scene_tick_charge_sound:
+    cmp match_mode, MATCH_MODE_LEVEL_UP
+    jne power_scene_tick_pulse
+    mov eax, esi
+    xor edx, edx
+    mov ecx, POWER_CHARGE_SOUND_PERIOD_TICKS
+    div ecx
+    test edx, edx
+    jnz power_scene_tick_pulse
+    lea ecx, [rax * 2 + POWER_CHARGE_SOUND_SEMITONE_START]
+    mov eax, AUDIO_SEMITONE_MAX
+    cmp ecx, eax
+    cmovg ecx, eax
+    audio_play_call sound_rise, ecx, VOLUME_QUIET, 0
+power_scene_tick_pulse:
+    cmp match_mode, MATCH_MODE_LEVEL_UP
+    jne power_scene_tick_done
+    mov eax, power_scene_ticks
+    xor edx, edx
+    mov ecx, POWER_PULSE_PERIOD_TICKS
+    div ecx
+    test edx, edx
+    jnz power_scene_tick_max_check
+    movss xmm0, (PLAYER PTR [rbx]).pos_x_u
+    movss xmm1, (PLAYER PTR [rbx]).pos_z_u
+    movss xmm2, power_pulse_ring_speed_u_per_tick
+    mov r9d, COLOR_GOLD_BGRA
+    call shockwave_spawn
+    screen_punch_call punch_power_pulse
+    audio_play_call sound_boom, AUDIO_SEMITONE_MIN, VOLUME_QUIET, 0
+power_scene_tick_max_check:
+    cmp match_mode, MATCH_MODE_LEVEL_UP
+    jne power_scene_tick_done
+    cmp esi, POWER_CHARGE_FULL_TICKS
+    jne power_scene_tick_done
+    screen_punch_call punch_power_max
+    xorps xmm2, xmm2
+    movss xmm3, popup_banner_bottom_y_px
+    popup_spawn_call text_popup_max_power, POPUP_NO_NUMBER, popup_style_banner
+    audio_play_call sound_zap, 0, VOLUME_LOUD, 0
+    jmp power_scene_tick_done
+
+power_scene_tick_roar:
+    cmp esi, 1
+    jne power_scene_tick_roar_aura
+    screen_punch_call punch_power_roar
+    audio_play_call sound_roar, 0, VOLUME_LOUD, 0
+    audio_play_call sound_boom, AUDIO_SEMITONE_MIN, VOLUME_LOUD, 0
+    audio_play_call sound_zap, AUDIO_SEMITONE_MIN, VOLUME_NORMAL, 0
+    movss xmm0, (PLAYER PTR [rbx]).pos_x_u
+    movss xmm1, power_chest_height_u
+    movss xmm2, (PLAYER PTR [rbx]).pos_z_u
+    particles_spawn_call particles_power_burst, COLOR_WHITE_BGRA
+    movss xmm0, (PLAYER PTR [rbx]).pos_x_u
+    movss xmm1, power_chest_height_u
+    movss xmm2, (PLAYER PTR [rbx]).pos_z_u
+    particles_spawn_call particles_power_ring, COLOR_GOLD_BGRA
+    movss xmm0, (PLAYER PTR [rbx]).pos_x_u
+    movss xmm1, (PLAYER PTR [rbx]).pos_z_u
+    movss xmm2, power_roar_ring_fast_speed_u_per_tick
+    mov r9d, COLOR_WHITE_BGRA
+    call shockwave_spawn
+    movss xmm0, (PLAYER PTR [rbx]).pos_x_u
+    movss xmm1, (PLAYER PTR [rbx]).pos_z_u
+    movss xmm2, power_roar_ring_middle_speed_u_per_tick
+    mov r9d, COLOR_GOLD_BGRA
+    call shockwave_spawn
+    movss xmm0, (PLAYER PTR [rbx]).pos_x_u
+    movss xmm1, (PLAYER PTR [rbx]).pos_z_u
+    movss xmm2, power_roar_ring_slow_speed_u_per_tick
+    mov r9d, COLOR_FLAME_BGRA
+    call shockwave_spawn
+    xorps xmm2, xmm2
+    movss xmm3, popup_banner_top_y_px
+    popup_spawn_call text_popup_power_up, POPUP_NO_NUMBER, popup_style_power
+power_scene_tick_roar_aura:
+    cmp esi, POWER_ROAR_AURA_TICKS
+    jae power_scene_tick_done
+    mov rcx, rbx
+    call power_aura_spawn
+    mov rcx, rbx
+    call power_aura_spawn
+power_scene_tick_done:
+    add rsp, FRAME_7_ARGS_EVEN_PUSHES_BYTES
+    pop rsi
+    pop rbx
+    ret
+power_scene_tick ENDP
+
+power_aura_spawn PROC
+    push rbx
+    sub rsp, FRAME_8_ARGS_ODD_PUSHES_BYTES
+    frame_alignment_check 1, FRAME_8_ARGS_ODD_PUSHES_BYTES
+    mov rbx, rcx
+    random_signed_unit_float_to xmm0
+    mulss xmm0, power_aura_radius_u
+    addss xmm0, (PLAYER PTR [rbx]).pos_x_u
+    random_signed_unit_float_to xmm2
+    mulss xmm2, power_aura_radius_u
+    addss xmm2, (PLAYER PTR [rbx]).pos_z_u
+    random_unit_float_to xmm1
+    mulss xmm1, power_aura_height_u
+    addss xmm1, power_aura_base_u
+    random_next_to_eax
+    shr eax, POWER_AURA_COLOR_SHIFT
+    lea rcx, power_aura_colors
+    mov eax, dword ptr [rcx + rax * 4]
+    particles_spawn_call particles_aura, eax
+    add rsp, FRAME_8_ARGS_ODD_PUSHES_BYTES
+    pop rbx
+    ret
+power_aura_spawn ENDP
+
+power_debris_spawn PROC
+    push rbx
+    sub rsp, FRAME_8_ARGS_ODD_PUSHES_BYTES
+    frame_alignment_check 1, FRAME_8_ARGS_ODD_PUSHES_BYTES
+    mov rbx, rcx
+    random_signed_unit_float_to xmm0
+    mulss xmm0, power_debris_radius_u
+    addss xmm0, (PLAYER PTR [rbx]).pos_x_u
+    random_signed_unit_float_to xmm2
+    mulss xmm2, power_debris_radius_u
+    addss xmm2, (PLAYER PTR [rbx]).pos_z_u
+    movss xmm1, power_debris_height_u
+    random_next_to_eax
+    shr eax, POWER_DEBRIS_COLOR_SHIFT
+    lea rcx, power_debris_colors
+    mov eax, dword ptr [rcx + rax * 4]
+    particles_spawn_call particles_debris, eax
+    add rsp, FRAME_8_ARGS_ODD_PUSHES_BYTES
+    pop rbx
+    ret
+power_debris_spawn ENDP
+
+power_scene_rays_draw PROC
+    push rbx
+    push rsi
+    push rdi
+    push r12
+    push r13
+    sub rsp, FRAME_6_ARGS_ODD_PUSHES_BYTES
+    frame_alignment_check 5, FRAME_6_ARGS_ODD_PUSHES_BYTES
+    call power_scene_active_check
+    test eax, eax
+    jz power_scene_rays_draw_done
+    mov ecx, match_point_loser_side
+    player_address_load rbx, ecx
+    movss xmm0, (PLAYER PTR [rbx]).pos_x_u
+    movss xmm1, power_chest_height_u
+    movss xmm2, (PLAYER PTR [rbx]).pos_z_u
+    call screen_position_from_world
+    cvtss2si esi, xmm0
+    add esi, SCREEN_CENTER_X_PX
+    cvtss2si edi, xmm1
+    add edi, SCREEN_CENTER_Y_PX
+    mov r12d, POWER_RAY_COUNT
+    cmp match_mode, MATCH_MODE_LEVEL_UP
+    jne power_scene_rays_draw_count_ready
+    mov eax, match_mode_ticks
+    shr eax, POWER_RAY_GROW_SHIFT
+    cmp eax, r12d
+    cmovb r12d, eax
+power_scene_rays_draw_count_ready:
+    imul r12d, r12d, POWER_RAY_WIDTH_LINES
+    xor r13d, r13d
+power_scene_rays_draw_line:
+    cmp r13d, r12d
+    jae power_scene_rays_draw_done
+    mov eax, r13d
+    xor edx, edx
+    mov ecx, POWER_RAY_WIDTH_LINES
+    div ecx
+    cvtsi2ss xmm0, eax
+    mulss xmm0, power_ray_spacing_radians
+    dec edx
+    cvtsi2ss xmm1, edx
+    mulss xmm1, power_ray_width_radians
+    addss xmm0, xmm1
+    cvtsi2ss xmm1, power_scene_ticks
+    mulss xmm1, power_ray_radians_per_tick
+    addss xmm0, xmm1
+    and eax, 1
+    lea rcx, power_ray_colors
+    cmp match_mode, MATCH_MODE_UPGRADE_TAKEN
+    jne power_scene_rays_draw_color_ready
+    lea rcx, power_ray_release_colors
+power_scene_rays_draw_color_ready:
+    mov ecx, dword ptr [rcx + rax * 4]
+    mov dword ptr [rsp + CALL_ARG5], ecx
+    movss dword ptr [rsp + POWER_RAYS_LOCAL_ANGLE], xmm0
+    call math_cos
+    mulss xmm0, power_ray_length_px
+    movss dword ptr [rsp + POWER_RAYS_LOCAL_COS], xmm0
+    movss xmm0, dword ptr [rsp + POWER_RAYS_LOCAL_ANGLE]
+    call math_sin
+    mulss xmm0, power_ray_length_px
+    cvtss2si r9d, xmm0
+    add r9d, edi
+    movss xmm0, dword ptr [rsp + POWER_RAYS_LOCAL_COS]
+    cvtss2si r8d, xmm0
+    add r8d, esi
+    mov ecx, esi
+    mov edx, edi
+    call framebuffer_line_draw
+    inc r13d
+    jmp power_scene_rays_draw_line
+power_scene_rays_draw_done:
+    add rsp, FRAME_6_ARGS_ODD_PUSHES_BYTES
+    pop r13
+    pop r12
+    pop rdi
+    pop rsi
+    pop rbx
+    ret
+power_scene_rays_draw ENDP
+
+power_scene_bolts_draw PROC
+    push rbx
+    push rsi
+    push rdi
+    sub rsp, FRAME_6_ARGS_ODD_PUSHES_BYTES
+    frame_alignment_check 3, FRAME_6_ARGS_ODD_PUSHES_BYTES
+    call power_scene_active_check
+    test eax, eax
+    jz power_scene_bolts_draw_done
+    cmp match_mode, MATCH_MODE_UPGRADE_TAKEN
+    jne power_scene_bolts_draw_charge_check
+    cmp match_mode_ticks, POWER_ROAR_AURA_TICKS
+    jae power_scene_bolts_draw_done
+    jmp power_scene_bolts_draw_start
+power_scene_bolts_draw_charge_check:
+    cmp match_mode, MATCH_MODE_LEVEL_UP
+    jne power_scene_bolts_draw_start
+    cmp match_mode_ticks, POWER_BOLT_START_TICKS
+    jb power_scene_bolts_draw_done
+power_scene_bolts_draw_start:
+    mov ecx, match_point_loser_side
+    player_address_load rbx, ecx
+    lea rdi, world_line_points
+    xor esi, esi
+power_scene_bolts_draw_bolt:
+    random_next_to_eax
+    test eax, POWER_BOLT_SHOW_BIT
+    jz power_scene_bolts_draw_bolt_next
+    random_signed_unit_float_to xmm0
+    mulss xmm0, power_bolt_offset_u
+    addss xmm0, (PLAYER PTR [rbx]).pos_x_u
+    movss (VEC3 PTR [rdi + SIZEOF VEC3]).x, xmm0
+    random_unit_float_to xmm0
+    mulss xmm0, power_bolt_height_u
+    addss xmm0, power_bolt_base_u
+    movss (VEC3 PTR [rdi + SIZEOF VEC3]).y, xmm0
+    random_signed_unit_float_to xmm0
+    mulss xmm0, power_bolt_offset_u
+    addss xmm0, (PLAYER PTR [rbx]).pos_z_u
+    movss (VEC3 PTR [rdi + SIZEOF VEC3]).z, xmm0
+    mov dword ptr [rsp + POWER_BOLTS_LOCAL_SEGMENTS_LEFT], POWER_BOLT_SEGMENT_COUNT
+power_scene_bolts_draw_segment:
+    movss xmm0, (VEC3 PTR [rdi + SIZEOF VEC3]).x
+    movss (VEC3 PTR [rdi]).x, xmm0
+    random_signed_unit_float_to xmm1
+    mulss xmm1, power_bolt_step_u
+    addss xmm0, xmm1
+    movss (VEC3 PTR [rdi + SIZEOF VEC3]).x, xmm0
+    movss xmm0, (VEC3 PTR [rdi + SIZEOF VEC3]).y
+    movss (VEC3 PTR [rdi]).y, xmm0
+    random_signed_unit_float_to xmm1
+    mulss xmm1, power_bolt_step_u
+    addss xmm0, xmm1
+    movss (VEC3 PTR [rdi + SIZEOF VEC3]).y, xmm0
+    movss xmm0, (VEC3 PTR [rdi + SIZEOF VEC3]).z
+    movss (VEC3 PTR [rdi]).z, xmm0
+    random_signed_unit_float_to xmm1
+    mulss xmm1, power_bolt_step_u
+    addss xmm0, xmm1
+    movss (VEC3 PTR [rdi + SIZEOF VEC3]).z, xmm0
+    random_next_to_eax
+    shr eax, POWER_BOLT_COLOR_SHIFT
+    lea rcx, power_bolt_colors
+    mov edx, dword ptr [rcx + rax * 4]
+    mov rcx, rdi
+    call world_line_draw
+    dec dword ptr [rsp + POWER_BOLTS_LOCAL_SEGMENTS_LEFT]
+    jnz power_scene_bolts_draw_segment
+power_scene_bolts_draw_bolt_next:
+    inc esi
+    cmp esi, POWER_BOLT_COUNT
+    jb power_scene_bolts_draw_bolt
+power_scene_bolts_draw_done:
+    add rsp, FRAME_6_ARGS_ODD_PUSHES_BYTES
+    pop rdi
+    pop rsi
+    pop rbx
+    ret
+power_scene_bolts_draw ENDP
+
 frame_render PROC
     push rbx
     sub rsp, FRAME_6_ARGS_ODD_PUSHES_BYTES
     frame_alignment_check 1, FRAME_6_ARGS_ODD_PUSHES_BYTES
     call camera_basis_compute
+    call zbuffer_clear
     call arena_draw
     cmp match_mode, MATCH_MODE_CHARACTER_SELECT
     jne frame_render_match
@@ -1321,6 +1817,8 @@ frame_render PROC
 
 frame_render_match:
     call shadows_draw
+    call shockwaves_draw
+    call power_scene_rays_draw
     mov ecx, SIDE_FAR
     call fighter_draw
     movss xmm0, ball_pos.z
@@ -1335,11 +1833,14 @@ frame_render_net_first:
 frame_render_near:
     mov ecx, SIDE_NEAR
     call fighter_draw
+    call power_scene_bolts_draw
+    call power_scene_active_check
+    test eax, eax
+    jnz frame_render_hud_done
     call hud_draw
+frame_render_hud_done:
     mov eax, match_mode
     cmp eax, MATCH_MODE_UPGRADE_CHOOSE
-    je frame_render_upgrade_screen
-    cmp eax, MATCH_MODE_UPGRADE_TAKEN
     je frame_render_upgrade_screen
     cmp eax, MATCH_MODE_OVER
     jne frame_render_effects
@@ -1410,6 +1911,51 @@ shadows_draw_done:
     ret
 shadows_draw ENDP
 
+fighter_action_select PROC
+    mov r8d, ecx
+    player_address_load r9, r8d
+    mov eax, match_mode
+    cmp eax, MATCH_MODE_POINT_SCORED
+    je fighter_action_select_point
+    cmp eax, MATCH_MODE_OVER
+    je fighter_action_select_point
+    cmp eax, MATCH_MODE_LEVEL_UP
+    je fighter_action_select_charge
+    cmp eax, MATCH_MODE_UPGRADE_CHOOSE
+    je fighter_action_select_charge
+    cmp eax, MATCH_MODE_UPGRADE_TAKEN
+    je fighter_action_select_roar
+    xor edx, edx
+    mov eax, POSE_ACTION_DASH
+    cmp (PLAYER PTR [r9]).dash_ticks_left, 0
+    jne fighter_action_select_done
+fighter_action_select_idle:
+    imul edx, r8d, FIGHTER_IDLE_TICKS_OFFSET_PER_SIDE
+    add edx, effects_ticks
+    mov eax, POSE_ACTION_MOVE
+    jmp fighter_action_select_done
+fighter_action_select_point:
+    mov edx, match_mode_ticks
+    mov eax, POSE_ACTION_CHEER
+    cmp r8d, match_point_loser_side
+    jne fighter_action_select_done
+    mov eax, POSE_ACTION_SLUMP
+    jmp fighter_action_select_done
+fighter_action_select_charge:
+    cmp r8d, match_point_loser_side
+    jne fighter_action_select_idle
+    mov eax, POSE_ACTION_POWER_CHARGE
+    mov edx, power_scene_ticks
+    jmp fighter_action_select_done
+fighter_action_select_roar:
+    cmp r8d, match_point_loser_side
+    jne fighter_action_select_idle
+    mov eax, POSE_ACTION_POWER_ROAR
+    mov edx, match_mode_ticks
+fighter_action_select_done:
+    ret
+fighter_action_select ENDP
+
 fighter_draw PROC
     push rbx
     push rsi
@@ -1431,6 +1977,10 @@ fighter_draw PROC
     movss fighter_pose.pos.y, xmm0
     movss fighter_pose.walk_amount, xmm0
     movss fighter_pose.swing_fraction, xmm0
+    movss fighter_pose.spin_radians, xmm0
+    mov fighter_pose.render_mode, POSE_RENDER_WIREFRAME
+    mov fighter_pose.action, POSE_ACTION_DASH
+    mov fighter_pose.action_ticks, 0
     xor edi, edi
 fighter_draw_ghost:
     mov eax, dword ptr [rsi + PLAYER.ghost_ticks_left + rdi * 4]
@@ -1463,13 +2013,86 @@ fighter_draw_ghost_next:
     cvtsi2ss xmm1, eax
     divss xmm0, xmm1
     movss fighter_pose.swing_fraction, xmm0
+    mov fighter_pose.render_mode, POSE_RENDER_SOLID
     mov fighter_pose.color_override_bgra, COLOR_NONE_BGRA
     cmp (PLAYER PTR [rsi]).flash_ticks_left, 0
-    je fighter_draw_body
+    je fighter_draw_action
     mov fighter_pose.color_override_bgra, COLOR_WHITE_BGRA
+fighter_draw_action:
+    mov ecx, ebx
+    call fighter_action_select
+    mov fighter_pose.action, eax
+    mov fighter_pose.action_ticks, edx
+    cmp eax, POSE_ACTION_POWER_CHARGE
+    je fighter_draw_face_camera
+    cmp eax, POSE_ACTION_POWER_ROAR
+    jne fighter_draw_spin
+fighter_draw_face_camera:
+    movss xmm0, camera_eye.x
+    subss xmm0, (PLAYER PTR [rsi]).pos_x_u
+    movss xmm1, camera_eye.z
+    subss xmm1, (PLAYER PTR [rsi]).pos_z_u
+    movaps xmm2, xmm0
+    mulss xmm2, xmm0
+    movaps xmm3, xmm1
+    mulss xmm3, xmm1
+    addss xmm2, xmm3
+    sqrtss xmm2, xmm2
+    comiss xmm2, fighter_facing_min_length
+    jb fighter_draw_spin
+    divss xmm0, xmm2
+    divss xmm1, xmm2
+    movss fighter_pose.facing_x, xmm0
+    movss fighter_pose.facing_z, xmm1
+fighter_draw_spin:
+    mov eax, (PLAYER PTR [rsi]).spin_ticks_left
+    test eax, eax
+    jz fighter_draw_body
+    cvtsi2ss xmm0, eax
+    mov eax, SPIN_TICKS
+    cvtsi2ss xmm1, eax
+    divss xmm0, xmm1
+    mulss xmm0, xmm0
+    movss xmm1, float_one
+    subss xmm1, xmm0
+    mulss xmm1, fighter_spin_total_radians
+    movss fighter_pose.spin_radians, xmm1
 fighter_draw_body:
     lea rcx, fighter_pose
     call character_draw
+
+    cmp (PLAYER PTR [rsi]).dash_ticks_left, 0
+    je fighter_draw_done
+    lea rdi, world_line_points
+    mov ebx, DASH_SPEED_LINE_COUNT
+fighter_draw_speed_line:
+    random_signed_unit_float_to xmm0
+    mulss xmm0, dash_line_offset_u
+    addss xmm0, (PLAYER PTR [rsi]).pos_x_u
+    movss (VEC3 PTR [rdi]).x, xmm0
+    movss xmm1, (PLAYER PTR [rsi]).facing_x
+    mulss xmm1, dash_line_length_u
+    subss xmm0, xmm1
+    movss (VEC3 PTR [rdi + SIZEOF VEC3]).x, xmm0
+    random_unit_float_to xmm0
+    mulss xmm0, dash_line_height_u
+    addss xmm0, dash_line_base_u
+    movss (VEC3 PTR [rdi]).y, xmm0
+    movss (VEC3 PTR [rdi + SIZEOF VEC3]).y, xmm0
+    random_signed_unit_float_to xmm0
+    mulss xmm0, dash_line_offset_u
+    addss xmm0, (PLAYER PTR [rsi]).pos_z_u
+    movss (VEC3 PTR [rdi]).z, xmm0
+    movss xmm1, (PLAYER PTR [rsi]).facing_z
+    mulss xmm1, dash_line_length_u
+    subss xmm0, xmm1
+    movss (VEC3 PTR [rdi + SIZEOF VEC3]).z, xmm0
+    mov rcx, rdi
+    mov edx, COLOR_WHITE_BGRA
+    call world_line_draw
+    dec ebx
+    jnz fighter_draw_speed_line
+fighter_draw_done:
     add rsp, FRAME_4_ARGS_ODD_PUSHES_BYTES
     pop rdi
     pop rsi
@@ -1654,13 +2277,25 @@ ball_draw_radius_ready:
     movss xmm0, ball_pos.z
     subss xmm0, xmm3
     movss (VEC3 PTR [rcx + 5 * SIZEOF VEC3]).z, xmm0
-    mov dword ptr [rsp + CALL_ARG5], edi
-    lea rax, primitives[PRIMITIVE_KIND_DIAMOND * SIZEOF PRIMITIVE]
+    lea rbx, primitives[PRIMITIVE_KIND_DIAMOND * SIZEOF PRIMITIVE]
     lea rcx, mesh_scratch_vertices
-    mov edx, (PRIMITIVE PTR [rax]).vertex_count
-    mov r8, (PRIMITIVE PTR [rax]).edges
-    mov r9d, (PRIMITIVE PTR [rax]).edge_count
-    call mesh_draw
+    mov edx, (PRIMITIVE PTR [rbx]).vertex_count
+    call mesh_project
+    lea rax, textures[TEXTURE_GEM * TEXTURE_TEXEL_COUNT]
+    mov qword ptr [rsp + CALL_ARG5], rax
+    mov dword ptr [rsp + CALL_ARG6], DEPTH_MODE_TEST_AND_WRITE
+    lea rcx, mesh_scratch_vertices
+    mov rdx, (PRIMITIVE PTR [rbx]).faces
+    mov r8d, (PRIMITIVE PTR [rbx]).face_count
+    mov r9d, edi
+    call mesh_faces_draw
+    mov ecx, edi
+    mov edx, MESH_OUTLINE_LEVEL
+    call color_scale
+    mov r8d, eax
+    mov rcx, (PRIMITIVE PTR [rbx]).edges
+    mov edx, (PRIMITIVE PTR [rbx]).edge_count
+    call mesh_edges_depth_draw
 ball_draw_done:
     add rsp, FRAME_6_ARGS_ODD_PUSHES_BYTES
     pop rdi

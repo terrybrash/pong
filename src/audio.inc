@@ -157,6 +157,7 @@ sound_define sound_coin, SOUND_WAVEFORM_SQUARE_TWO_TONE, 120, 988, 1319
 sound_define sound_rise, SOUND_WAVEFORM_SQUARE_SWEEP, 400, 220, 1320
 sound_define sound_shield, SOUND_WAVEFORM_TRIANGLE_SWEEP, 220, 150, 900
 sound_define sound_dash, SOUND_WAVEFORM_SQUARE_SWEEP, 140, 260, 1000
+sound_define sound_roar, SOUND_WAVEFORM_SQUARE_SWEEP, 700, 160, 55
 sound_define music_kick, SOUND_WAVEFORM_TRIANGLE_SWEEP, 170, 170, 40
 sound_define music_snare, SOUND_WAVEFORM_NOISE, 140, 0, 0
 sound_define music_hat, SOUND_WAVEFORM_NOISE, 28, 0, 0
@@ -241,6 +242,7 @@ audio_sounds_synthesize PROC
     sound_synthesize_call sound_rise
     sound_synthesize_call sound_shield
     sound_synthesize_call sound_dash
+    sound_synthesize_call sound_roar
     sound_synthesize_call music_kick
     sound_synthesize_call music_snare
     sound_synthesize_call music_hat

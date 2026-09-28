@@ -22,15 +22,14 @@ UPGRADE_REEL_TICK_SEMITONE          equ 7
 UPGRADE_REEL_TICK_SEMITONE_PER_REEL equ 5
 UPGRADE_CPU_DECIDE_DELAY_TICKS      equ 40
 UPGRADE_CPU_TAKE_DELAY_TICKS        equ 90
-UPGRADE_TAKEN_TICKS                 equ 44
-UPGRADE_TAKEN_BLINK_BIT_MASK        equ 4
+UPGRADE_TAKEN_TICKS                 equ 110
 UPGRADE_SPIN_BLINK_BIT_MASK         equ 2
 UPGRADE_TITLE_TOP_PX                equ 42
 UPGRADE_PROMPT_TOP_PX               equ 224
-UPGRADE_CARD_LEFT_PX                equ 36
-UPGRADE_CARD_WIDTH_PX               equ 248
-UPGRADE_CARD_HEIGHT_PX              equ 46
-UPGRADE_CARD_TOP_PX                 equ 56
+UPGRADE_CARD_LEFT_PX                equ 142
+UPGRADE_CARD_WIDTH_PX               equ 168
+UPGRADE_CARD_HEIGHT_PX              equ 48
+UPGRADE_CARD_TOP_PX                 equ 52
 UPGRADE_CARD_PITCH_PX               equ 54
 UPGRADE_CARD_CENTER_Y_PX            equ UPGRADE_CARD_TOP_PX + UPGRADE_CARD_HEIGHT_PX / 2
 UPGRADE_CARD_BORDER_PX              equ 2
@@ -38,25 +37,25 @@ UPGRADE_CARD_GLOW_PX                equ 2
 UPGRADE_CARD_GLOW_LEVEL             equ 90
 UPGRADE_CARD_DIM_BORDER_LEVEL       equ 150
 UPGRADE_CARD_SELECTED_SHIFT_PX      equ 6
-UPGRADE_CARD_TEXT_INSET_PX          equ 10
-UPGRADE_CARD_NAME_TOP_INSET_PX      equ 9
-UPGRADE_CARD_DESCRIPTION_TOP_INSET_PX equ 30
-UPGRADE_CARD_RARITY_TOP_INSET_PX    equ 5
-UPGRADE_CARD_RARITY_RIGHT_INSET_PX  equ 7
+UPGRADE_CARD_TEXT_INSET_PX          equ 8
+UPGRADE_CARD_NAME_TOP_INSET_PX      equ 6
+UPGRADE_CARD_DESCRIPTION_TOP_INSET_PX equ 25
+UPGRADE_CARD_RARITY_TOP_INSET_PX    equ 36
 UPGRADE_CARD_PIP_SIZE_PX            equ 4
 UPGRADE_CARD_PIP_PITCH_PX           equ 6
 UPGRADE_CARD_PIP_RIGHT_INSET_PX     equ 11
-UPGRADE_CARD_PIP_TOP_INSET_PX       equ 38
-UPGRADE_CARD_PIPS_MAX               equ 12
+UPGRADE_CARD_PIP_TOP_INSET_PX       equ 37
+UPGRADE_CARD_PIPS_MAX               equ 10
+UPGRADE_SCENE_DARKEN_LEVEL          equ 36
 UPGRADE_CARD_SLIDE_TICKS            equ 18
 UPGRADE_CARD_SLIDE_STAGGER_TICKS    equ 4
 .ERRE UPGRADE_CARD_LEFT_PX + UPGRADE_CARD_SLIDE_TICKS * UPGRADE_CARD_SLIDE_TICKS GE SCREEN_WIDTH_PX
 UPGRADE_CARD_PULSE_LEVEL_MIN        equ 160
 UPGRADE_CARD_PULSE_LEVEL_PER_TICK   equ 6
 .ERRE UPGRADE_CARD_PULSE_LEVEL_MIN + UPGRADE_CARD_PULSE_LEVEL_PER_TICK * TRIANGLE_WAVE_PERIOD_TICKS / 2 LE COLOR_LEVEL_FULL
-COLOR_CARD_BORDER_BGRA              equ 00383848h
-COLOR_CARD_PANEL_BGRA               equ 00101018h
-COLOR_CARD_PANEL_SELECTED_BGRA      equ 001A1A2Ah
+COLOR_CARD_BORDER_BGRA              equ PALETTE_SLATE_BGRA
+COLOR_CARD_PANEL_BGRA               equ PALETTE_NIGHT_BGRA
+COLOR_CARD_PANEL_SELECTED_BGRA      equ PALETTE_NAVY_BGRA
 
 UPGRADE_REEL STRUCT
     kind                            DWORD ?
@@ -68,25 +67,25 @@ UPGRADE_REEL STRUCT
 UPGRADE_REEL ENDS
 
 .const
-popup_card_rarity_x_px              REAL4 96.0
-popup_card_gain_x_px                REAL4 -104.0
-card_center_x_px_float              REAL4 160.0
+popup_card_rarity_x_px              REAL4 66.0
+popup_card_gain_x_px                REAL4 66.0
+card_center_x_px_float              REAL4 226.0
 upgrade_rarity_level_gain           DWORD 1, 2, 3, 5
-upgrade_rarity_color_bgra           DWORD 00C8C8D0h, 003C8CFFh, 00B048FFh, 00FFC830h
+upgrade_rarity_color_bgra           DWORD PALETTE_SILVER_BGRA, PALETTE_SKY_BGRA, PALETTE_RED_BGRA, PALETTE_YELLOW_BGRA
 text_upgrade_big_reach_name         BYTE "BIG REACH", 0
-text_upgrade_big_reach_description  BYTE "YOU REACH THE BALL FROM FARTHER", 0
+text_upgrade_big_reach_description  BYTE "HIT FROM FARTHER", 0
 text_upgrade_quick_feet_name        BYTE "QUICK FEET", 0
-text_upgrade_quick_feet_description BYTE "YOU RUN FASTER", 0
+text_upgrade_quick_feet_description BYTE "RUN FASTER", 0
 text_upgrade_power_hit_name         BYTE "POWER HIT", 0
-text_upgrade_power_hit_description  BYTE "FASTER SHOTS, MORE CRITS", 0
+text_upgrade_power_hit_description  BYTE "FAST SHOTS, MORE CRITS", 0
 text_upgrade_wide_aim_name          BYTE "WIDE AIM", 0
-text_upgrade_wide_aim_description   BYTE "YOU AIM WIDER SHOTS", 0
+text_upgrade_wide_aim_description   BYTE "AIM WIDER SHOTS", 0
 text_upgrade_shield_name            BYTE "SHIELD", 0
-text_upgrade_shield_description     BYTE "A MAGIC WALL SAVES ONE POINT", 0
+text_upgrade_shield_description     BYTE "SAVES ONE POINT", 0
 text_upgrade_shrink_foe_name        BYTE "SHRINK FOE", 0
-text_upgrade_shrink_foe_description BYTE "THE FOE REACH GETS SMALLER", 0
+text_upgrade_shrink_foe_description BYTE "FOE REACH SHRINKS", 0
 text_upgrade_dash_master_name       BYTE "DASH MASTER", 0
-text_upgrade_dash_master_description BYTE "YOUR DASH RECHARGES FASTER", 0
+text_upgrade_dash_master_description BYTE "DASH RECHARGES FASTER", 0
 text_upgrade_rarity_common          BYTE "COMMON +1", 0
 text_upgrade_rarity_rare            BYTE "RARE +2", 0
 text_upgrade_rarity_epic            BYTE "EPIC +3", 0
@@ -499,7 +498,7 @@ upgrade_screen_draw PROC
     sub rsp, FRAME_6_ARGS_ODD_PUSHES_BYTES
     frame_alignment_check 1, FRAME_6_ARGS_ODD_PUSHES_BYTES
     mov ecx, COLOR_BLACK_BGRA
-    mov edx, SCREEN_DARKEN_LEVEL
+    mov edx, UPGRADE_SCENE_DARKEN_LEVEL
     call framebuffer_lerp_toward
 
     mov eax, match_point_loser_side
@@ -575,21 +574,13 @@ upgrade_card_draw PROC
     lea rcx, upgrade_rarity_color_bgra
     mov r12d, dword ptr [rcx + rax * 4]
     cmp eax, UPGRADE_RARITY_LEGENDARY
-    jne upgrade_card_draw_taken_check
+    jne upgrade_card_draw_position
     mov eax, effects_ticks
     shr eax, 1
     rainbow_color_from_eax r12d
 
-upgrade_card_draw_taken_check:
-    cmp match_mode, MATCH_MODE_UPGRADE_TAKEN
-    jne upgrade_card_draw_position
-    test edi, edi
-    jz upgrade_card_draw_done
-
 upgrade_card_draw_position:
     mov r13d, UPGRADE_CARD_LEFT_PX
-    cmp match_mode, MATCH_MODE_UPGRADE_CHOOSE
-    jne upgrade_card_draw_slide_done
     imul eax, ebx, UPGRADE_CARD_SLIDE_STAGGER_TICKS
     mov ecx, UPGRADE_CARD_SLIDE_TICKS
     add eax, ecx
@@ -617,8 +608,6 @@ upgrade_card_draw_top:
     mov r15d, COLOR_WHITE_BGRA
     jmp upgrade_card_draw_border
 upgrade_card_draw_border_stopped:
-    cmp match_mode, MATCH_MODE_UPGRADE_TAKEN
-    je upgrade_card_draw_border_taken
     test edi, edi
     jnz upgrade_card_draw_border_selected
     mov ecx, r12d
@@ -644,12 +633,6 @@ upgrade_card_draw_border_selected:
     call color_scale
     mov r15d, eax
     jmp upgrade_card_draw_border
-upgrade_card_draw_border_taken:
-    mov r15d, r12d
-    test match_mode_ticks, UPGRADE_TAKEN_BLINK_BIT_MASK
-    jz upgrade_card_draw_border
-    mov r15d, COLOR_WHITE_BGRA
-
 upgrade_card_draw_border:
     mov dword ptr [rsp + CALL_ARG5], r15d
     mov ecx, r13d
@@ -713,13 +696,7 @@ upgrade_card_draw_description:
     mov dword ptr [rsp + CALL_ARG5], TEXT_SCALE_SMALL
     call text_draw
 
-    mov eax, (UPGRADE_REEL PTR [rsi]).rarity
-    lea rcx, upgrade_rarity_texts
-    mov rcx, qword ptr [rcx + rax * 8]
-    mov edx, TEXT_SCALE_SMALL
-    call text_width_px
-    lea edx, [r13 + UPGRADE_CARD_WIDTH_PX - UPGRADE_CARD_RARITY_RIGHT_INSET_PX]
-    sub edx, eax
+    lea edx, [r13 + UPGRADE_CARD_TEXT_INSET_PX]
     mov eax, (UPGRADE_REEL PTR [rsi]).rarity
     lea rcx, upgrade_rarity_texts
     mov rcx, qword ptr [rcx + rax * 8]

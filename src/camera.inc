@@ -6,6 +6,9 @@ PRIMITIVE_KIND_DIAMOND              equ 3
 PRIMITIVE_KIND_LINE                 equ 4
 PRIMITIVE_KIND_RING                 equ 5
 PRIMITIVE_KIND_COUNT                equ 6
+PRIMITIVE_BOX_FACE_COUNT            equ 12
+PRIMITIVE_PYRAMID_FACE_COUNT        equ 6
+PRIMITIVE_DIAMOND_FACE_COUNT        equ 8
 MESH_DRAW_PUSHED_REGISTER_COUNT     equ 6
 MESH_DRAW_ARG5                      equ FRAME_4_ARGS_EVEN_PUSHES_BYTES + 8 * MESH_DRAW_PUSHED_REGISTER_COUNT + CALLEE_ARG5
 LINE_VIEW_DRAW_FRAME_BYTES          equ 80
@@ -26,12 +29,26 @@ GROUND_SHADOW_DRAW_LOCAL_SY         equ 64
 GROUND_SHADOW_DRAW_LOCAL_RX         equ 68
 GROUND_SHADOW_DRAW_LOCAL_SY_FAR     equ 72
 SHADOW_LEVEL                        equ 110
+CAMERA_UPDATE_TICK_FRAME_BYTES      equ 64
+CAMERA_UPDATE_TICK_LOCAL_EASE       equ 32
+CAMERA_UPDATE_TICK_LOCAL_EYE_X      equ 36
+CAMERA_UPDATE_TICK_LOCAL_EYE_Y      equ 40
+CAMERA_UPDATE_TICK_LOCAL_EYE_Z      equ 44
+CAMERA_UPDATE_TICK_LOCAL_TARGET_X   equ 48
+CAMERA_UPDATE_TICK_LOCAL_TARGET_Y   equ 52
+CAMERA_UPDATE_TICK_LOCAL_TARGET_Z   equ 56
+CAMERA_UPDATE_TICK_LOCAL_ANGLE      equ 60
+COLOR_FOG_BGRA                      equ PALETTE_DUSK_BGRA
+CAMERA_POWER_ZOOM_TICKS             equ 50
 
 PRIMITIVE STRUCT
     unit_vertices                   QWORD ?
     edges                           QWORD ?
     vertex_count                    DWORD ?
     edge_count                      DWORD ?
+    faces                           QWORD ?
+    face_count                      DWORD ?
+    primitive_padding               DWORD ?
 PRIMITIVE ENDS
 
 .const
@@ -40,23 +57,31 @@ camera_near_u                       REAL4 0.2
 screen_center_x_px_float            REAL4 160.0
 screen_center_y_px_float            REAL4 120.0
 line_coordinate_limit_px            REAL4 4096.0
-depth_fade_start_u                  REAL4 7.0
+depth_fade_start_u                  REAL4 16.0
 depth_fade_level_per_u              REAL4 5.0
-depth_fade_level_min                REAL4 70.0
-color_level_full_float              REAL4 256.0
+depth_fade_level_max                REAL4 225.0
 float_sine_b                        REAL4 1.27323954
 float_sine_c                        REAL4 -0.40528473
 float_sine_p                        REAL4 0.225
-camera_gameplay_eye_height_u        REAL4 4.4
-camera_gameplay_eye_back_u          REAL4 7.4
+camera_gameplay_eye_height_u        REAL4 6.0
+camera_gameplay_eye_back_u          REAL4 11.0
 camera_gameplay_eye_x_factor        REAL4 0.55
 camera_gameplay_target_height_u     REAL4 0.7
-camera_gameplay_target_ahead_u      REAL4 7.5
+camera_gameplay_target_ahead_u      REAL4 14.0
 camera_gameplay_target_x_factor     REAL4 0.3
 camera_ease_per_tick                REAL4 0.08
 camera_select_eye                   VEC3 <0.0, 2.0, -6.8>
 camera_select_target                VEC3 <0.0, 1.0, 0.0>
 ui_particle_depth_u                 REAL4 4.0
+camera_power_target_height_u        REAL4 1.1
+camera_power_eye_height_u           REAL4 0.7
+camera_power_orbit_radians_per_tick REAL4 0.006
+camera_power_orbit_start_radians    REAL4 -0.45
+camera_power_radius_u               REAL4 3.0
+camera_power_release_radius_u       REAL4 4.8
+camera_power_side_offset_u          REAL4 1.2
+camera_power_zoom_u_per_tick        REAL4 0.1
+camera_power_ease_per_tick          REAL4 0.12
 
 primitive_box_unit_vertices         VEC3 <-1.0, -1.0, -1.0>, <1.0, -1.0, -1.0>, <-1.0, 1.0, -1.0>, <1.0, 1.0, -1.0>
                                     VEC3 <-1.0, -1.0, 1.0>, <1.0, -1.0, 1.0>, <-1.0, 1.0, 1.0>, <1.0, 1.0, 1.0>
@@ -74,12 +99,12 @@ primitive_ring_unit_vertices        VEC3 <1.0, 0.0, 0.0>, <0.8660254, 0.0, 0.5>,
 primitive_ring_edges                BYTE 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 0
 
 ALIGN 8
-primitives                          PRIMITIVE <primitive_box_unit_vertices, primitive_box_edges, 8, 12>
-                                    PRIMITIVE <primitive_pyramid_unit_vertices, primitive_pyramid_edges, 5, 8>
-                                    PRIMITIVE <primitive_pyramid_down_unit_vertices, primitive_pyramid_edges, 5, 8>
-                                    PRIMITIVE <primitive_diamond_unit_vertices, primitive_diamond_edges, 6, 12>
-                                    PRIMITIVE <primitive_line_unit_vertices, primitive_line_edges, 2, 1>
-                                    PRIMITIVE <primitive_ring_unit_vertices, primitive_ring_edges, 12, 12>
+primitives                          PRIMITIVE <primitive_box_unit_vertices, primitive_box_edges, 8, 12, primitive_box_faces, PRIMITIVE_BOX_FACE_COUNT, 0>
+                                    PRIMITIVE <primitive_pyramid_unit_vertices, primitive_pyramid_edges, 5, 8, primitive_pyramid_faces, PRIMITIVE_PYRAMID_FACE_COUNT, 0>
+                                    PRIMITIVE <primitive_pyramid_down_unit_vertices, primitive_pyramid_edges, 5, 8, primitive_pyramid_faces, PRIMITIVE_PYRAMID_FACE_COUNT, 0>
+                                    PRIMITIVE <primitive_diamond_unit_vertices, primitive_diamond_edges, 6, 12, primitive_diamond_faces, PRIMITIVE_DIAMOND_FACE_COUNT, 0>
+                                    PRIMITIVE <primitive_line_unit_vertices, primitive_line_edges, 2, 1, 0, 0, 0>
+                                    PRIMITIVE <primitive_ring_unit_vertices, primitive_ring_edges, 12, 12, 0, 0, 0>
 primitives_end                      LABEL QWORD
 .ERRNZ (primitives_end - primitives) - PRIMITIVE_KIND_COUNT * SIZEOF PRIMITIVE
 
@@ -180,56 +205,144 @@ camera_basis_compute PROC
 camera_basis_compute ENDP
 
 camera_update_tick PROC
-    movss xmm5, xmm0
-    cmp match_mode, MATCH_MODE_CHARACTER_SELECT
-    jne camera_update_tick_gameplay
-    movss xmm0, camera_select_eye.x
-    movss xmm1, camera_select_eye.y
-    movss xmm2, camera_select_eye.z
-    movss xmm3, camera_select_target.x
-    movss xmm4, camera_select_target.z
-    movss dword ptr [rsp + 8], xmm4
-    movss xmm4, camera_select_target.y
-    jmp camera_update_tick_ease
-camera_update_tick_gameplay:
+    push rbx
+    sub rsp, CAMERA_UPDATE_TICK_FRAME_BYTES
+    frame_alignment_check 1, CAMERA_UPDATE_TICK_FRAME_BYTES
+    movss dword ptr [rsp + CAMERA_UPDATE_TICK_LOCAL_EASE], xmm0
+    mov eax, match_mode
+    cmp eax, MATCH_MODE_CHARACTER_SELECT
+    je camera_update_tick_select
+    cmp eax, MATCH_MODE_LEVEL_UP
+    je camera_update_tick_power
+    cmp eax, MATCH_MODE_UPGRADE_CHOOSE
+    je camera_update_tick_power
+    cmp eax, MATCH_MODE_UPGRADE_TAKEN
+    je camera_update_tick_power
+
     lea rax, players[SIZEOF PLAYER * SIDE_NEAR]
     movss xmm0, (PLAYER PTR [rax]).pos_x_u
     mulss xmm0, camera_gameplay_eye_x_factor
-    movss xmm1, camera_gameplay_eye_height_u
-    movss xmm2, (PLAYER PTR [rax]).pos_z_u
-    subss xmm2, camera_gameplay_eye_back_u
-    movss xmm3, (PLAYER PTR [rax]).pos_x_u
-    mulss xmm3, camera_gameplay_target_x_factor
-    movss xmm4, (PLAYER PTR [rax]).pos_z_u
-    addss xmm4, camera_gameplay_target_ahead_u
-    movss dword ptr [rsp + 8], xmm4
-    movss xmm4, camera_gameplay_target_height_u
+    movss dword ptr [rsp + CAMERA_UPDATE_TICK_LOCAL_EYE_X], xmm0
+    movss xmm0, camera_gameplay_eye_height_u
+    movss dword ptr [rsp + CAMERA_UPDATE_TICK_LOCAL_EYE_Y], xmm0
+    movss xmm0, (PLAYER PTR [rax]).pos_z_u
+    subss xmm0, camera_gameplay_eye_back_u
+    movss dword ptr [rsp + CAMERA_UPDATE_TICK_LOCAL_EYE_Z], xmm0
+    movss xmm0, (PLAYER PTR [rax]).pos_x_u
+    mulss xmm0, camera_gameplay_target_x_factor
+    movss dword ptr [rsp + CAMERA_UPDATE_TICK_LOCAL_TARGET_X], xmm0
+    movss xmm0, camera_gameplay_target_height_u
+    movss dword ptr [rsp + CAMERA_UPDATE_TICK_LOCAL_TARGET_Y], xmm0
+    movss xmm0, (PLAYER PTR [rax]).pos_z_u
+    addss xmm0, camera_gameplay_target_ahead_u
+    movss dword ptr [rsp + CAMERA_UPDATE_TICK_LOCAL_TARGET_Z], xmm0
+    jmp camera_update_tick_ease
+
+camera_update_tick_select:
+    movss xmm0, camera_select_eye.x
+    movss dword ptr [rsp + CAMERA_UPDATE_TICK_LOCAL_EYE_X], xmm0
+    movss xmm0, camera_select_eye.y
+    movss dword ptr [rsp + CAMERA_UPDATE_TICK_LOCAL_EYE_Y], xmm0
+    movss xmm0, camera_select_eye.z
+    movss dword ptr [rsp + CAMERA_UPDATE_TICK_LOCAL_EYE_Z], xmm0
+    movss xmm0, camera_select_target.x
+    movss dword ptr [rsp + CAMERA_UPDATE_TICK_LOCAL_TARGET_X], xmm0
+    movss xmm0, camera_select_target.y
+    movss dword ptr [rsp + CAMERA_UPDATE_TICK_LOCAL_TARGET_Y], xmm0
+    movss xmm0, camera_select_target.z
+    movss dword ptr [rsp + CAMERA_UPDATE_TICK_LOCAL_TARGET_Z], xmm0
+    jmp camera_update_tick_ease
+
+camera_update_tick_power:
+    mov ecx, match_point_loser_side
+    player_address_load rbx, ecx
+    movss xmm0, (PLAYER PTR [rbx]).pos_x_u
+    movss dword ptr [rsp + CAMERA_UPDATE_TICK_LOCAL_TARGET_X], xmm0
+    movss xmm0, camera_power_target_height_u
+    movss dword ptr [rsp + CAMERA_UPDATE_TICK_LOCAL_TARGET_Y], xmm0
+    movss xmm0, camera_power_eye_height_u
+    movss dword ptr [rsp + CAMERA_UPDATE_TICK_LOCAL_EYE_Y], xmm0
+    movss xmm0, (PLAYER PTR [rbx]).pos_z_u
+    movss dword ptr [rsp + CAMERA_UPDATE_TICK_LOCAL_TARGET_Z], xmm0
+    cvtsi2ss xmm0, power_scene_ticks
+    mulss xmm0, camera_power_orbit_radians_per_tick
+    addss xmm0, camera_power_orbit_start_radians
+    xorps xmm1, xmm1
+    cmp match_point_loser_side, SIDE_NEAR
+    je camera_update_tick_power_angle_ready
+    movss xmm1, float_pi
+camera_update_tick_power_angle_ready:
+    addss xmm0, xmm1
+    movss dword ptr [rsp + CAMERA_UPDATE_TICK_LOCAL_ANGLE], xmm0
+    call math_sin
+    movss dword ptr [rsp + CAMERA_UPDATE_TICK_LOCAL_EYE_X], xmm0
+    movss xmm0, dword ptr [rsp + CAMERA_UPDATE_TICK_LOCAL_ANGLE]
+    call math_cos
+    cmp match_mode, MATCH_MODE_UPGRADE_CHOOSE
+    jne camera_update_tick_power_side_ready
+    movaps xmm1, xmm0
+    mulss xmm1, camera_power_side_offset_u
+    movss xmm2, dword ptr [rsp + CAMERA_UPDATE_TICK_LOCAL_TARGET_X]
+    subss xmm2, xmm1
+    movss dword ptr [rsp + CAMERA_UPDATE_TICK_LOCAL_TARGET_X], xmm2
+    movss xmm1, dword ptr [rsp + CAMERA_UPDATE_TICK_LOCAL_EYE_X]
+    mulss xmm1, camera_power_side_offset_u
+    addss xmm1, dword ptr [rsp + CAMERA_UPDATE_TICK_LOCAL_TARGET_Z]
+    movss dword ptr [rsp + CAMERA_UPDATE_TICK_LOCAL_TARGET_Z], xmm1
+camera_update_tick_power_side_ready:
+    movss xmm2, camera_power_release_radius_u
+    cmp match_mode, MATCH_MODE_UPGRADE_TAKEN
+    je camera_update_tick_power_radius_ready
+    movss xmm2, camera_power_radius_u
+    mov eax, CAMERA_POWER_ZOOM_TICKS
+    sub eax, power_scene_ticks
+    jle camera_update_tick_power_radius_ready
+    cvtsi2ss xmm3, eax
+    mulss xmm3, camera_power_zoom_u_per_tick
+    addss xmm2, xmm3
+camera_update_tick_power_radius_ready:
+    mulss xmm0, xmm2
+    addss xmm0, (PLAYER PTR [rbx]).pos_z_u
+    movss dword ptr [rsp + CAMERA_UPDATE_TICK_LOCAL_EYE_Z], xmm0
+    movss xmm0, dword ptr [rsp + CAMERA_UPDATE_TICK_LOCAL_EYE_X]
+    mulss xmm0, xmm2
+    addss xmm0, (PLAYER PTR [rbx]).pos_x_u
+    movss dword ptr [rsp + CAMERA_UPDATE_TICK_LOCAL_EYE_X], xmm0
+
 camera_update_tick_ease:
+    movss xmm5, dword ptr [rsp + CAMERA_UPDATE_TICK_LOCAL_EASE]
+    movss xmm0, dword ptr [rsp + CAMERA_UPDATE_TICK_LOCAL_EYE_X]
     subss xmm0, camera_eye.x
     mulss xmm0, xmm5
     addss xmm0, camera_eye.x
     movss camera_eye.x, xmm0
-    subss xmm1, camera_eye.y
-    mulss xmm1, xmm5
-    addss xmm1, camera_eye.y
-    movss camera_eye.y, xmm1
-    subss xmm2, camera_eye.z
-    mulss xmm2, xmm5
-    addss xmm2, camera_eye.z
-    movss camera_eye.z, xmm2
-    subss xmm3, camera_target.x
-    mulss xmm3, xmm5
-    addss xmm3, camera_target.x
-    movss camera_target.x, xmm3
-    subss xmm4, camera_target.y
-    mulss xmm4, xmm5
-    addss xmm4, camera_target.y
-    movss camera_target.y, xmm4
-    movss xmm4, dword ptr [rsp + 8]
-    subss xmm4, camera_target.z
-    mulss xmm4, xmm5
-    addss xmm4, camera_target.z
-    movss camera_target.z, xmm4
+    movss xmm0, dword ptr [rsp + CAMERA_UPDATE_TICK_LOCAL_EYE_Y]
+    subss xmm0, camera_eye.y
+    mulss xmm0, xmm5
+    addss xmm0, camera_eye.y
+    movss camera_eye.y, xmm0
+    movss xmm0, dword ptr [rsp + CAMERA_UPDATE_TICK_LOCAL_EYE_Z]
+    subss xmm0, camera_eye.z
+    mulss xmm0, xmm5
+    addss xmm0, camera_eye.z
+    movss camera_eye.z, xmm0
+    movss xmm0, dword ptr [rsp + CAMERA_UPDATE_TICK_LOCAL_TARGET_X]
+    subss xmm0, camera_target.x
+    mulss xmm0, xmm5
+    addss xmm0, camera_target.x
+    movss camera_target.x, xmm0
+    movss xmm0, dword ptr [rsp + CAMERA_UPDATE_TICK_LOCAL_TARGET_Y]
+    subss xmm0, camera_target.y
+    mulss xmm0, xmm5
+    addss xmm0, camera_target.y
+    movss camera_target.y, xmm0
+    movss xmm0, dword ptr [rsp + CAMERA_UPDATE_TICK_LOCAL_TARGET_Z]
+    subss xmm0, camera_target.z
+    mulss xmm0, xmm5
+    addss xmm0, camera_target.z
+    movss camera_target.z, xmm0
+    add rsp, CAMERA_UPDATE_TICK_FRAME_BYTES
+    pop rbx
     ret
 camera_update_tick ENDP
 
@@ -447,18 +560,11 @@ line_view_draw_start_in_front:
     movss dword ptr [rsp + LINE_VIEW_DRAW_LOCAL_Z1], xmm2
 
 line_view_draw_fade:
-    movss xmm0, dword ptr [rsp + LINE_VIEW_DRAW_LOCAL_Z0]
-    addss xmm0, dword ptr [rsp + LINE_VIEW_DRAW_LOCAL_Z1]
-    mulss xmm0, float_half
-    subss xmm0, depth_fade_start_u
-    maxss xmm0, float_zero
-    mulss xmm0, depth_fade_level_per_u
-    movss xmm1, color_level_full_float
-    subss xmm1, xmm0
-    maxss xmm1, depth_fade_level_min
-    cvttss2si edx, xmm1
+    movss xmm1, dword ptr [rsp + LINE_VIEW_DRAW_LOCAL_Z0]
+    addss xmm1, dword ptr [rsp + LINE_VIEW_DRAW_LOCAL_Z1]
+    mulss xmm1, float_half
     mov ecx, ebx
-    call color_scale
+    call fog_color_apply
     mov dword ptr [rsp + CALL_ARG5], eax
 
     movss xmm0, dword ptr [rsp + LINE_VIEW_DRAW_LOCAL_X0]
@@ -488,45 +594,57 @@ line_view_draw_done:
     ret
 line_view_draw ENDP
 
-primitive_draw PROC
-    push rbx
-    push rsi
-    push rdi
-    sub rsp, FRAME_6_ARGS_ODD_PUSHES_BYTES
-    frame_alignment_check 3, FRAME_6_ARGS_ODD_PUSHES_BYTES
+fog_color_apply PROC
+    subss xmm1, depth_fade_start_u
+    maxss xmm1, float_zero
+    mulss xmm1, depth_fade_level_per_u
+    minss xmm1, depth_fade_level_max
+    cvttss2si r8d, xmm1
+    mov edx, COLOR_FOG_BGRA
+    jmp color_lerp
+fog_color_apply ENDP
+
+primitive_vertices_build PROC
     assert_below_unsigned ecx, PRIMITIVE_KIND_COUNT
     imul eax, ecx, SIZEOF PRIMITIVE
-    lea rbx, primitives
-    add rbx, rax
-    mov rsi, (PRIMITIVE PTR [rbx]).unit_vertices
-    mov ecx, (PRIMITIVE PTR [rbx]).vertex_count
-    lea rdi, mesh_scratch_vertices
-primitive_draw_vertex:
-    movss xmm0, (VEC3 PTR [rsi]).x
+    lea r9, primitives
+    add rax, r9
+    mov r10, (PRIMITIVE PTR [rax]).unit_vertices
+    mov ecx, (PRIMITIVE PTR [rax]).vertex_count
+    lea r11, mesh_scratch_vertices
+primitive_vertices_build_vertex:
+    movss xmm0, (VEC3 PTR [r10]).x
     mulss xmm0, (VEC3 PTR [r8]).x
     addss xmm0, (VEC3 PTR [rdx]).x
-    movss (VEC3 PTR [rdi]).x, xmm0
-    movss xmm0, (VEC3 PTR [rsi]).y
+    movss (VEC3 PTR [r11]).x, xmm0
+    movss xmm0, (VEC3 PTR [r10]).y
     mulss xmm0, (VEC3 PTR [r8]).y
     addss xmm0, (VEC3 PTR [rdx]).y
-    movss (VEC3 PTR [rdi]).y, xmm0
-    movss xmm0, (VEC3 PTR [rsi]).z
+    movss (VEC3 PTR [r11]).y, xmm0
+    movss xmm0, (VEC3 PTR [r10]).z
     mulss xmm0, (VEC3 PTR [r8]).z
     addss xmm0, (VEC3 PTR [rdx]).z
-    movss (VEC3 PTR [rdi]).z, xmm0
-    add rsi, SIZEOF VEC3
-    add rdi, SIZEOF VEC3
+    movss (VEC3 PTR [r11]).z, xmm0
+    add r10, SIZEOF VEC3
+    add r11, SIZEOF VEC3
     dec ecx
-    jnz primitive_draw_vertex
-    mov dword ptr [rsp + CALL_ARG5], r9d
+    jnz primitive_vertices_build_vertex
+    ret
+primitive_vertices_build ENDP
+
+primitive_draw PROC
+    push rbx
+    sub rsp, FRAME_6_ARGS_ODD_PUSHES_BYTES
+    frame_alignment_check 1, FRAME_6_ARGS_ODD_PUSHES_BYTES
+    mov ebx, r9d
+    call primitive_vertices_build
+    mov dword ptr [rsp + CALL_ARG5], ebx
     lea rcx, mesh_scratch_vertices
-    mov edx, (PRIMITIVE PTR [rbx]).vertex_count
-    mov r8, (PRIMITIVE PTR [rbx]).edges
-    mov r9d, (PRIMITIVE PTR [rbx]).edge_count
+    mov edx, (PRIMITIVE PTR [rax]).vertex_count
+    mov r8, (PRIMITIVE PTR [rax]).edges
+    mov r9d, (PRIMITIVE PTR [rax]).edge_count
     call mesh_draw
     add rsp, FRAME_6_ARGS_ODD_PUSHES_BYTES
-    pop rdi
-    pop rsi
     pop rbx
     ret
 primitive_draw ENDP

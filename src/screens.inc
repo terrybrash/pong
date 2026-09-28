@@ -9,9 +9,9 @@ SELECT_STAT_BAR_PITCH_PX            equ 6
 SELECT_DESCRIPTION_TOP_PX           equ 212
 SELECT_PROMPT_TOP_PX                equ 226
 SELECT_UNSELECTED_LEVEL             equ 110
-COLOR_SELECT_UNSELECTED_BGRA        equ 00505868h
-COLOR_SELECT_BAR_EMPTY_BGRA         equ 00303040h
-COLOR_SELECT_RING_BGRA              equ 00606878h
+SELECT_IDLE_TICKS_OFFSET_PER_CHARACTER equ 37
+COLOR_SELECT_BAR_EMPTY_BGRA         equ PALETTE_DUSK_BGRA
+COLOR_SELECT_RING_BGRA              equ PALETTE_SLATE_BGRA
 HUD_MULTIPLIER_TOP_PX               equ 38
 HUD_COMBO_TOP_PX                    equ 66
 HUD_LABEL_TOP_PX                    equ 34
@@ -21,7 +21,7 @@ HUD_DASH_LABEL_TOP_PX               equ 221
 HUD_DASH_BAR_TOP_PX                 equ 230
 HUD_DASH_BAR_WIDTH_PX               equ 48
 HUD_DASH_BAR_HEIGHT_PX              equ 4
-COLOR_HUD_BAR_EMPTY_BGRA            equ 00303040h
+COLOR_HUD_BAR_EMPTY_BGRA            equ PALETTE_DUSK_BGRA
 COMBO_POPUP_MIN                     equ 3
 SERVE_REEL_BOX_WIDTH_PX             equ 56
 SERVE_REEL_BOX_HEIGHT_PX            equ 30
@@ -43,12 +43,8 @@ OVER_COIN_PERIOD_TICKS              equ 2
 .const
 select_first_x_u                    REAL4 -4.2
 select_spacing_u                    REAL4 2.8
-select_hop_u                        REAL4 0.35
-select_hop_radians_per_tick         REAL4 0.1
 select_turn_radians_per_tick        REAL4 0.02
 select_turn_offset_per_character    REAL4 1.5
-select_walk_radians_per_tick        REAL4 0.12
-select_walk_amount                  REAL4 0.8
 select_ring_radius_u                REAL4 0.9
 select_shadow_radius_u              REAL4 0.55
 select_particle_y_u                 REAL4 1.0
@@ -174,21 +170,20 @@ select_screen_draw_ring:
     xorps xmm0, xmm0
     movss select_pose.pos.y, xmm0
     movss select_pose.walk_amount, xmm0
-    mov select_pose.color_override_bgra, COLOR_SELECT_UNSELECTED_BGRA
-    cvtsi2ss xmm0, effects_ticks
-    mulss xmm0, select_walk_radians_per_tick
     movss select_pose.walk_phase_radians, xmm0
+    movss select_pose.swing_fraction, xmm0
+    movss select_pose.spin_radians, xmm0
+    mov select_pose.color_override_bgra, COLOR_NONE_BGRA
+    mov select_pose.render_mode, POSE_RENDER_SOLID
+    mov select_pose.action, POSE_ACTION_MOVE
+    imul eax, ebx, SELECT_IDLE_TICKS_OFFSET_PER_CHARACTER
+    add eax, effects_ticks
+    mov select_pose.action_ticks, eax
     cmp ebx, character_select_index
     jne select_screen_draw_turn
-    mov select_pose.color_override_bgra, COLOR_NONE_BGRA
-    movss xmm0, select_walk_amount
-    movss select_pose.walk_amount, xmm0
-    cvtsi2ss xmm0, effects_ticks
-    mulss xmm0, select_hop_radians_per_tick
-    call math_sin
-    andps xmm0, xmmword ptr float_abs_mask_x4
-    mulss xmm0, select_hop_u
-    movss select_pose.pos.y, xmm0
+    mov select_pose.action, POSE_ACTION_DANCE
+    mov eax, effects_ticks
+    mov select_pose.action_ticks, eax
 select_screen_draw_turn:
     cvtsi2ss xmm0, effects_ticks
     mulss xmm0, select_turn_radians_per_tick
@@ -202,8 +197,6 @@ select_screen_draw_turn:
     call math_cos
     xorps xmm0, xmmword ptr float_sign_mask_x4
     movss select_pose.facing_z, xmm0
-    xorps xmm0, xmm0
-    movss select_pose.swing_fraction, xmm0
     mov select_pose.character_index, ebx
     lea rcx, select_pose
     call character_draw

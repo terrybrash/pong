@@ -95,6 +95,8 @@ main_entry PROC
     sub rsp, MAIN_ENTRY_FRAME_BYTES
     frame_alignment_check 0, MAIN_ENTRY_FRAME_BYTES
 
+    call textures_generate
+    call palette_lut_build
     rdtsc
     mov random_state, eax
     call audio_sounds_synthesize

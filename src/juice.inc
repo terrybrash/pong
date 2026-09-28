@@ -1,9 +1,10 @@
-PARTICLE_COUNT_MAX                  equ 512
+PARTICLE_COUNT_MAX                  equ 1024
 .ERRNZ PARTICLE_COUNT_MAX AND (PARTICLE_COUNT_MAX - 1)
 PARTICLE_LEVEL_PER_LIFE_TICK        equ 6
 PARTICLE_COLOR_MODE_ARGUMENT        equ 0
 PARTICLE_COLOR_MODE_RANDOM_HUE      equ 1
-PARTICLE_SIZE_NEAR_PX               equ 2
+PARTICLE_SIZE_NEAR_PX               equ 3
+PARTICLE_SIZE_MIDDLE_PX             equ 2
 PARTICLE_SIZE_FAR_PX                equ 1
 PARTICLES_SPAWN_BURST_PUSHED_REGISTER_COUNT equ 1
 PARTICLES_SPAWN_BURST_ARG5          equ 8 * PARTICLES_SPAWN_BURST_PUSHED_REGISTER_COUNT + CALLEE_ARG5
@@ -16,6 +17,9 @@ POPUP_POP_BIG_TICKS                 equ 4
 POPUP_POP_TICKS                     equ 9
 POPUP_BLINK_TICKS                   equ 16
 POPUP_BLINK_BIT_MASK                equ 4
+POPUP_SHADOW_BGRA                   equ PALETTE_NIGHT_BGRA
+POPUPS_DRAW_LOCAL_X                 equ CALL_ARG6
+POPUPS_DRAW_LOCAL_Y                 equ CALL_ARG6 + 4
 POPUP_SPAWN_PUSHED_REGISTER_COUNT   equ 3
 POPUP_SPAWN_ARG5                    equ FRAME_4_ARGS_ODD_PUSHES_BYTES + 8 * POPUP_SPAWN_PUSHED_REGISTER_COUNT + CALLEE_ARG5
 POPUP_SPAWN_ARG6                    equ POPUP_SPAWN_ARG5 + 8
@@ -25,6 +29,12 @@ SCORE_POP_TICKS                     equ 6
 BACKGROUND_FLASH_TICKS              equ 12
 BACKGROUND_FLASH_LEVEL_PER_TICK     equ 7
 SLOW_MO_TICK_DIVISOR                equ 3
+SHOCKWAVE_COUNT                     equ 16
+.ERRNZ SHOCKWAVE_COUNT AND (SHOCKWAVE_COUNT - 1)
+SHOCKWAVE_LIFE_TICKS                equ 34
+SHOCKWAVE_LEVEL_PER_TICK            equ 7
+.ERRE SHOCKWAVE_LEVEL_PER_TICK * SHOCKWAVE_LIFE_TICKS LE COLOR_LEVEL_FULL
+SHOCKWAVES_DRAW_PUSHED_REGISTER_COUNT equ 2
 
 PARTICLE STRUCT
     pos                             VEC3 <>
@@ -72,11 +82,24 @@ PUNCH STRUCT
     zoom_ticks                      DWORD ?
     hit_stop_ticks                  DWORD ?
     slow_mo_ticks                   DWORD ?
+    impact_frames                   DWORD ?
 PUNCH ENDS
+
+SHOCKWAVE STRUCT
+    center_x_u                      REAL4 ?
+    center_z_u                      REAL4 ?
+    radius_u                        REAL4 ?
+    speed_u_per_tick                REAL4 ?
+    life_ticks_left                 DWORD ?
+    color_bgra                      DWORD ?
+SHOCKWAVE ENDS
 
 .const
 particle_drag_per_tick              REAL4 0.985
-particle_near_depth_u               REAL4 9.0
+particle_near_depth_u               REAL4 5.0
+particle_middle_depth_u             REAL4 12.0
+shockwave_height_u                  REAL4 0.05
+shockwave_inner_factor              REAL4 0.85
 popup_banner_top_y_px               REAL4 -56.0
 popup_banner_middle_y_px            REAL4 -26.0
 popup_banner_low_y_px               REAL4 24.0
@@ -85,15 +108,15 @@ popup_banner_bottom_y_px            REAL4 64.0
 popup_rise_above_px                 REAL4 -14.0
 popup_combo_below_px                REAL4 10.0
 
-particles_hit                       PARTICLE_STYLE <16, 2.4, 1.5, 7.0, 14, 18, PARTICLE_COLOR_MODE_ARGUMENT>
-particles_crit                      PARTICLE_STYLE <50, 5.0, 2.5, 6.0, 20, 30, PARTICLE_COLOR_MODE_RANDOM_HUE>
-particles_dash                      PARTICLE_STYLE <14, 1.4, 1.0, 4.0, 12, 14, PARTICLE_COLOR_MODE_ARGUMENT>
-particles_land                      PARTICLE_STYLE <60, 4.2, 4.0, 10.0, 24, 30, PARTICLE_COLOR_MODE_ARGUMENT>
-particles_coins                     PARTICLE_STYLE <24, 2.6, 6.5, 13.0, 50, 40, PARTICLE_COLOR_MODE_ARGUMENT>
+particles_hit                       PARTICLE_STYLE <26, 3.0, 1.8, 7.0, 16, 20, PARTICLE_COLOR_MODE_ARGUMENT>
+particles_crit                      PARTICLE_STYLE <80, 6.5, 3.0, 6.0, 24, 34, PARTICLE_COLOR_MODE_RANDOM_HUE>
+particles_dash                      PARTICLE_STYLE <20, 1.8, 1.2, 4.0, 14, 16, PARTICLE_COLOR_MODE_ARGUMENT>
+particles_land                      PARTICLE_STYLE <90, 5.5, 5.0, 10.0, 26, 34, PARTICLE_COLOR_MODE_ARGUMENT>
+particles_coins                     PARTICLE_STYLE <30, 3.2, 7.5, 13.0, 50, 40, PARTICLE_COLOR_MODE_ARGUMENT>
 particles_flame                     PARTICLE_STYLE <1, 0.6, 0.9, -1.5, 8, 10, PARTICLE_COLOR_MODE_ARGUMENT>
 particles_flame_rainbow             PARTICLE_STYLE <2, 0.9, 0.9, -1.5, 10, 12, PARTICLE_COLOR_MODE_RANDOM_HUE>
-particles_shield                    PARTICLE_STYLE <36, 3.2, 3.5, 5.0, 20, 26, PARTICLE_COLOR_MODE_ARGUMENT>
-particles_firework                  PARTICLE_STYLE <60, 5.0, 0.5, 3.5, 30, 40, PARTICLE_COLOR_MODE_RANDOM_HUE>
+particles_shield                    PARTICLE_STYLE <44, 3.8, 3.5, 5.0, 20, 26, PARTICLE_COLOR_MODE_ARGUMENT>
+particles_firework                  PARTICLE_STYLE <70, 6.0, 0.5, 3.5, 30, 40, PARTICLE_COLOR_MODE_RANDOM_HUE>
 particles_coin_rain                 PARTICLE_STYLE <1, 0.4, -1.5, 6.0, 90, 30, PARTICLE_COLOR_MODE_ARGUMENT>
 particles_select                    PARTICLE_STYLE <30, 2.2, 3.0, 7.0, 16, 20, PARTICLE_COLOR_MODE_RANDOM_HUE>
 particles_reel_common               PARTICLE_STYLE <10, 3.0, 0.5, 0.0, 12, 16, PARTICLE_COLOR_MODE_ARGUMENT>
@@ -102,6 +125,10 @@ particles_reel_epic                 PARTICLE_STYLE <44, 5.0, 0.5, 0.0, 18, 26, P
 particles_reel_legendary            PARTICLE_STYLE <90, 6.0, 1.0, 4.0, 30, 40, PARTICLE_COLOR_MODE_RANDOM_HUE>
 particles_upgrade_take              PARTICLE_STYLE <50, 5.0, 0.5, 0.0, 20, 30, PARTICLE_COLOR_MODE_ARGUMENT>
 particles_ui_coins                  PARTICLE_STYLE <24, 4.0, 4.0, 10.0, 40, 40, PARTICLE_COLOR_MODE_ARGUMENT>
+particles_aura                      PARTICLE_STYLE <1, 0.45, 2.6, -3.0, 16, 18, PARTICLE_COLOR_MODE_ARGUMENT>
+particles_debris                    PARTICLE_STYLE <1, 0.3, 0.9, -0.4, 80, 40, PARTICLE_COLOR_MODE_ARGUMENT>
+particles_power_burst               PARTICLE_STYLE <140, 9.0, 3.5, 5.0, 30, 40, PARTICLE_COLOR_MODE_RANDOM_HUE>
+particles_power_ring                PARTICLE_STYLE <60, 7.0, 0.3, 0.0, 16, 12, PARTICLE_COLOR_MODE_ARGUMENT>
 
 popup_style_combo                   POPUP_STYLE <TEXT_SCALE_SMALL, COLOR_COMBO_BGRA, 40, -0.6>
 popup_style_crit                    POPUP_STYLE <TEXT_SCALE_HUGE, TEXT_COLOR_RAINBOW, 60, -0.35>
@@ -110,25 +137,30 @@ popup_style_jackpot                 POPUP_STYLE <TEXT_SCALE_HUGE, TEXT_COLOR_RAI
 popup_style_points                  POPUP_STYLE <TEXT_SCALE_HUGE, COLOR_GOLD_BGRA, 70, -0.5>
 popup_style_info                    POPUP_STYLE <TEXT_SCALE_LARGE, COLOR_WHITE_BGRA, 60, -0.3>
 popup_style_rarity                  POPUP_STYLE <TEXT_SCALE_SMALL, TEXT_COLOR_RAINBOW, 50, -0.4>
+popup_style_power                   POPUP_STYLE <TEXT_SCALE_GIANT, TEXT_COLOR_RAINBOW, 100, -0.1>
 
-punch_player_hit                    PUNCH <1.6, 10, 0, 0, 0, 5, 7, 0>
-punch_player_crit                   PUNCH <4.5, 26, COLOR_WHITE_BGRA, 8, 14, 14, 12, 30>
-punch_cpu_hit                       PUNCH <0.8, 8, 0, 0, 0, 2, 3, 0>
-punch_cpu_crit                      PUNCH <3.5, 22, COLOR_WHITE_BGRA, 6, 12, 10, 8, 24>
-punch_dash                          PUNCH <0.8, 6, 0, 0, 0, 3, 0, 0>
-punch_multiplier_up                 PUNCH <2.0, 16, COLOR_GOLD_BGRA, 6, 6, 10, 0, 0>
-punch_serve_multiplier              PUNCH <2.0, 14, COLOR_GOLD_BGRA, 6, 8, 10, 0, 0>
-punch_shield                        PUNCH <3.0, 24, COLOR_WHITE_BGRA, 5, 6, 8, 8, 0>
-punch_point                         PUNCH <4.5, 36, COLOR_WHITE_BGRA, 6, 10, 12, 14, 0>
-punch_point_big                     PUNCH <6.0, 50, COLOR_GOLD_BGRA, 12, 18, 16, 16, 0>
-punch_jackpot                       PUNCH <7.0, 60, COLOR_GOLD_BGRA, 16, 24, 18, 18, 0>
-punch_match_won                     PUNCH <6.0, 60, COLOR_WHITE_BGRA, 20, 20, 18, 0, 90>
-punch_reel_stop                     PUNCH <1.0, 6, 0, 0, 0, 4, 0, 0>
-punch_reel_epic                     PUNCH <2.5, 16, 00B048FFh, 6, 8, 8, 0, 0>
-punch_reroll                        PUNCH <1.5, 10, COLOR_WHITE_BGRA, 4, 4, 6, 0, 0>
-punch_upgrade_take                  PUNCH <2.0, 14, COLOR_WHITE_BGRA, 6, 6, 10, 0, 0>
-punch_select                        PUNCH <1.0, 6, 0, 0, 0, 4, 0, 0>
-punch_fight                         PUNCH <3.0, 20, COLOR_WHITE_BGRA, 10, 10, 14, 0, 0>
+punch_player_hit                    PUNCH <2.2, 12, 0, 0, 2, 6, 9, 0, 0>
+punch_player_crit                   PUNCH <6.0, 32, COLOR_WHITE_BGRA, 10, 18, 16, 16, 36, 2>
+punch_cpu_hit                       PUNCH <1.2, 10, 0, 0, 0, 3, 4, 0, 0>
+punch_cpu_crit                      PUNCH <4.5, 26, COLOR_WHITE_BGRA, 8, 14, 12, 10, 28, 1>
+punch_dash                          PUNCH <1.2, 8, 0, 0, 2, 4, 0, 0, 0>
+punch_multiplier_up                 PUNCH <3.0, 20, COLOR_GOLD_BGRA, 8, 8, 12, 4, 0, 0>
+punch_serve_multiplier              PUNCH <3.0, 18, COLOR_GOLD_BGRA, 8, 10, 12, 0, 0, 0>
+punch_shield                        PUNCH <4.0, 28, COLOR_WHITE_BGRA, 6, 8, 10, 10, 0, 1>
+punch_point                         PUNCH <6.0, 44, COLOR_WHITE_BGRA, 8, 14, 14, 16, 0, 1>
+punch_point_big                     PUNCH <8.0, 60, COLOR_GOLD_BGRA, 14, 22, 18, 18, 0, 2>
+punch_jackpot                       PUNCH <9.0, 72, COLOR_GOLD_BGRA, 18, 28, 20, 20, 0, 3>
+punch_match_won                     PUNCH <8.0, 72, COLOR_WHITE_BGRA, 24, 24, 20, 0, 100, 3>
+punch_reel_stop                     PUNCH <1.2, 8, 0, 0, 0, 5, 0, 0, 0>
+punch_reel_epic                     PUNCH <3.0, 18, PALETTE_RED_BGRA, 8, 10, 10, 0, 0, 1>
+punch_reroll                        PUNCH <2.0, 12, COLOR_WHITE_BGRA, 5, 6, 8, 0, 0, 0>
+punch_upgrade_take                  PUNCH <3.0, 16, COLOR_WHITE_BGRA, 8, 8, 12, 0, 0, 0>
+punch_select                        PUNCH <1.2, 8, 0, 0, 0, 5, 0, 0, 0>
+punch_fight                         PUNCH <4.0, 24, COLOR_WHITE_BGRA, 12, 12, 16, 0, 0, 1>
+punch_level_up                      PUNCH <5.0, 30, COLOR_GOLD_BGRA, 12, 16, 18, 10, 0, 2>
+punch_power_pulse                   PUNCH <1.5, 10, 0, 0, 4, 0, 0, 0, 0>
+punch_power_max                     PUNCH <3.0, 16, COLOR_WHITE_BGRA, 6, 10, 12, 6, 0, 1>
+punch_power_roar                    PUNCH <8.0, 70, COLOR_WHITE_BGRA, 24, 24, 22, 12, 0, 3>
 
 text_empty                          BYTE 0
 text_popup_crit                     BYTE "CRIT!", 0
@@ -144,6 +176,9 @@ text_popup_saved                    BYTE "SAVED!", 0
 text_popup_match_point              BYTE "MATCH POINT!", 0
 text_popup_reroll                   BYTE "REROLL!", 0
 text_popup_fight                    BYTE "FIGHT!", 0
+text_popup_level_up                 BYTE "LEVEL UP!!", 0
+text_popup_max_power                BYTE "MAX POWER!", 0
+text_popup_power_up                 BYTE "POWER UP!!!", 0
 
 .data?
 particles                           PARTICLE PARTICLE_COUNT_MAX DUP (<>)
@@ -165,6 +200,10 @@ screen_chroma_ticks_left            DWORD ?
 screen_zoom_ticks_left              DWORD ?
 screen_zoom_duration_ticks          DWORD ?
 background_flash_ticks_left         DWORD ?
+shockwaves                          SHOCKWAVE SHOCKWAVE_COUNT DUP (<>)
+shockwave_next_index                DWORD ?
+shockwave_center                    VEC3 <>
+shockwave_half                      VEC3 <>
 
 .code
 
@@ -245,6 +284,20 @@ effects_tick_popup_next:
     dec edx
     jnz effects_tick_popup
 
+    lea rcx, shockwaves
+    mov edx, SHOCKWAVE_COUNT
+effects_tick_shockwave:
+    cmp (SHOCKWAVE PTR [rcx]).life_ticks_left, 0
+    je effects_tick_shockwave_next
+    dec (SHOCKWAVE PTR [rcx]).life_ticks_left
+    movss xmm0, (SHOCKWAVE PTR [rcx]).radius_u
+    addss xmm0, (SHOCKWAVE PTR [rcx]).speed_u_per_tick
+    movss (SHOCKWAVE PTR [rcx]).radius_u, xmm0
+effects_tick_shockwave_next:
+    add rcx, SIZEOF SHOCKWAVE
+    dec edx
+    jnz effects_tick_shockwave
+
     lea rcx, upgrade_reels
     mov edx, UPGRADE_OFFER_COUNT
 effects_tick_reel:
@@ -266,6 +319,7 @@ effects_tick_reel:
 effects_tick_player:
     counter_down_to_zero <(PLAYER PTR [rbx]).flash_ticks_left>
     counter_down_to_zero <(PLAYER PTR [rbx]).score_pop_ticks_left>
+    counter_down_to_zero <(PLAYER PTR [rbx]).spin_ticks_left>
     xor ecx, ecx
 effects_tick_player_ghost:
     counter_down_to_zero <dword ptr [rbx + PLAYER.ghost_ticks_left + rcx * 4]>
@@ -364,6 +418,9 @@ particles_draw_one:
     jb particles_draw_next
     mov edi, PARTICLE_SIZE_NEAR_PX
     comiss xmm2, particle_near_depth_u
+    jb particles_draw_size_ready
+    mov edi, PARTICLE_SIZE_MIDDLE_PX
+    comiss xmm2, particle_middle_depth_u
     jb particles_draw_size_ready
     mov edi, PARTICLE_SIZE_FAR_PX
 particles_draw_size_ready:
@@ -487,6 +544,16 @@ popups_draw_scaled:
     imul eax, edi, FONT_TEXT_ROWS
     sar eax, 1
     sub r8d, eax
+    mov dword ptr [rsp + POPUPS_DRAW_LOCAL_X], edx
+    mov dword ptr [rsp + POPUPS_DRAW_LOCAL_Y], r8d
+    add edx, edi
+    add r8d, edi
+    mov r9d, POPUP_SHADOW_BGRA
+    mov dword ptr [rsp + CALL_ARG5], edi
+    lea rcx, [rbx + POPUP.text_bytes]
+    call text_draw_centered
+    mov edx, dword ptr [rsp + POPUPS_DRAW_LOCAL_X]
+    mov r8d, dword ptr [rsp + POPUPS_DRAW_LOCAL_Y]
     mov r9d, (POPUP PTR [rbx]).color_bgra
     mov dword ptr [rsp + CALL_ARG5], edi
     lea rcx, [rbx + POPUP.text_bytes]
@@ -533,6 +600,8 @@ screen_punch_hit_stop:
     counter_raise_to hit_stop_ticks_left, eax
     mov eax, (PUNCH PTR [rbx]).slow_mo_ticks
     counter_raise_to slow_mo_ticks_left, eax
+    mov eax, (PUNCH PTR [rbx]).impact_frames
+    counter_raise_to screen_impact_frames_left, eax
     add rsp, FRAME_4_ARGS_ODD_PUSHES_BYTES
     pop rbx
     ret
@@ -555,3 +624,72 @@ screen_shake_start_set:
 screen_shake_start_done:
     ret
 screen_shake_start ENDP
+
+shockwave_spawn PROC
+    assert_bits_clear r9d, COLOR_ALPHA_MASK
+    mov eax, shockwave_next_index
+    lea ecx, [rax + 1]
+    and ecx, SHOCKWAVE_COUNT - 1
+    mov shockwave_next_index, ecx
+    imul eax, eax, SIZEOF SHOCKWAVE
+    lea rcx, shockwaves
+    add rcx, rax
+    movss (SHOCKWAVE PTR [rcx]).center_x_u, xmm0
+    movss (SHOCKWAVE PTR [rcx]).center_z_u, xmm1
+    movss (SHOCKWAVE PTR [rcx]).speed_u_per_tick, xmm2
+    xorps xmm0, xmm0
+    movss (SHOCKWAVE PTR [rcx]).radius_u, xmm0
+    mov (SHOCKWAVE PTR [rcx]).life_ticks_left, SHOCKWAVE_LIFE_TICKS
+    mov (SHOCKWAVE PTR [rcx]).color_bgra, r9d
+    ret
+shockwave_spawn ENDP
+
+shockwaves_draw PROC
+    push rbx
+    push rsi
+    sub rsp, FRAME_4_ARGS_EVEN_PUSHES_BYTES
+    frame_alignment_check SHOCKWAVES_DRAW_PUSHED_REGISTER_COUNT, FRAME_4_ARGS_EVEN_PUSHES_BYTES
+    lea rbx, shockwaves
+    mov esi, SHOCKWAVE_COUNT
+shockwaves_draw_one:
+    mov edx, (SHOCKWAVE PTR [rbx]).life_ticks_left
+    test edx, edx
+    jz shockwaves_draw_next
+    imul edx, edx, SHOCKWAVE_LEVEL_PER_TICK
+    mov ecx, (SHOCKWAVE PTR [rbx]).color_bgra
+    call color_scale
+    mov dword ptr [rsp + CALL_ARG5], eax
+    movss xmm0, (SHOCKWAVE PTR [rbx]).center_x_u
+    movss shockwave_center.x, xmm0
+    movss xmm0, shockwave_height_u
+    movss shockwave_center.y, xmm0
+    movss xmm0, (SHOCKWAVE PTR [rbx]).center_z_u
+    movss shockwave_center.z, xmm0
+    movss xmm0, (SHOCKWAVE PTR [rbx]).radius_u
+    movss shockwave_half.x, xmm0
+    movss shockwave_half.z, xmm0
+    xorps xmm0, xmm0
+    movss shockwave_half.y, xmm0
+    mov ecx, PRIMITIVE_KIND_RING
+    lea rdx, shockwave_center
+    lea r8, shockwave_half
+    mov r9d, dword ptr [rsp + CALL_ARG5]
+    call primitive_draw
+    movss xmm0, shockwave_half.x
+    mulss xmm0, shockwave_inner_factor
+    movss shockwave_half.x, xmm0
+    movss shockwave_half.z, xmm0
+    mov ecx, PRIMITIVE_KIND_RING
+    lea rdx, shockwave_center
+    lea r8, shockwave_half
+    mov r9d, dword ptr [rsp + CALL_ARG5]
+    call primitive_draw
+shockwaves_draw_next:
+    add rbx, SIZEOF SHOCKWAVE
+    dec esi
+    jnz shockwaves_draw_one
+    add rsp, FRAME_4_ARGS_EVEN_PUSHES_BYTES
+    pop rsi
+    pop rbx
+    ret
+shockwaves_draw ENDP

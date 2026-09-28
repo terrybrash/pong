@@ -36,11 +36,40 @@ BITMAPINFOHEADER STRUCT
 BITMAPINFOHEADER ENDS
 .ERRNZ SIZEOF BITMAPINFOHEADER - 40
 
+PALETTE_LUT_CHANNEL_BITS            equ 5
+PALETTE_LUT_CHANNEL_LEVELS          equ 1 SHL PALETTE_LUT_CHANNEL_BITS
+PALETTE_LUT_ENTRY_COUNT             equ PALETTE_LUT_CHANNEL_LEVELS * PALETTE_LUT_CHANNEL_LEVELS * PALETTE_LUT_CHANNEL_LEVELS
+PALETTE_LUT_LEVEL_TO_CHANNEL_SHIFT  equ 8 - PALETTE_LUT_CHANNEL_BITS
+PALETTE_LUT_LEVEL_CENTER            equ 1 SHL (PALETTE_LUT_LEVEL_TO_CHANNEL_SHIFT - 1)
+PALETTE_LUT_CHANNEL_MASK            equ PALETTE_LUT_CHANNEL_LEVELS - 1
+PALETTE_LUT_RED_MASK                equ PALETTE_LUT_CHANNEL_MASK SHL (2 * PALETTE_LUT_CHANNEL_BITS)
+PALETTE_LUT_GREEN_MASK              equ PALETTE_LUT_CHANNEL_MASK SHL PALETTE_LUT_CHANNEL_BITS
+PALETTE_LUT_RED_SHIFT               equ 16 + PALETTE_LUT_LEVEL_TO_CHANNEL_SHIFT - 2 * PALETTE_LUT_CHANNEL_BITS
+PALETTE_LUT_GREEN_SHIFT             equ 8 + PALETTE_LUT_LEVEL_TO_CHANNEL_SHIFT - PALETTE_LUT_CHANNEL_BITS
+.ERRNZ PALETTE_LUT_RED_SHIFT - 9
+.ERRNZ PALETTE_LUT_GREEN_SHIFT - 6
+PALETTE_DISTANCE_RED_WEIGHT         equ 3
+PALETTE_DISTANCE_GREEN_WEIGHT       equ 4
+PALETTE_DISTANCE_BLUE_WEIGHT        equ 2
+DITHER_ROW_COUNT                    equ 4
+DITHER_AMPLITUDE_SHIFT              equ 2
+DITHER_CHANNELS                     equ 00010101h
+PIXEL_RGB_MASK                      equ 00FFFFFFh
+
 .const
 ALIGN 16
 pixel_red_mask_x4                   DWORD 4 DUP (00FF0000h)
 pixel_green_mask_x4                 DWORD 4 DUP (0000FF00h)
 pixel_blue_mask_x4                  DWORD 4 DUP (000000FFh)
+pixel_rgb_mask_x4                   DWORD 4 DUP (PIXEL_RGB_MASK)
+dither_add_rows                     DWORD 0, (1 SHR DITHER_AMPLITUDE_SHIFT) * DITHER_CHANNELS, 0, (5 SHR DITHER_AMPLITUDE_SHIFT) * DITHER_CHANNELS
+                                    DWORD (9 SHR DITHER_AMPLITUDE_SHIFT) * DITHER_CHANNELS, 0, (13 SHR DITHER_AMPLITUDE_SHIFT) * DITHER_CHANNELS, 0
+                                    DWORD 0, (7 SHR DITHER_AMPLITUDE_SHIFT) * DITHER_CHANNELS, 0, (3 SHR DITHER_AMPLITUDE_SHIFT) * DITHER_CHANNELS
+                                    DWORD (15 SHR DITHER_AMPLITUDE_SHIFT) * DITHER_CHANNELS, 0, (11 SHR DITHER_AMPLITUDE_SHIFT) * DITHER_CHANNELS, 0
+dither_sub_rows                     DWORD (15 SHR DITHER_AMPLITUDE_SHIFT) * DITHER_CHANNELS, 0, (11 SHR DITHER_AMPLITUDE_SHIFT) * DITHER_CHANNELS, 0
+                                    DWORD 0, (7 SHR DITHER_AMPLITUDE_SHIFT) * DITHER_CHANNELS, 0, (3 SHR DITHER_AMPLITUDE_SHIFT) * DITHER_CHANNELS
+                                    DWORD (9 SHR DITHER_AMPLITUDE_SHIFT) * DITHER_CHANNELS, 0, (13 SHR DITHER_AMPLITUDE_SHIFT) * DITHER_CHANNELS, 0
+                                    DWORD 0, (1 SHR DITHER_AMPLITUDE_SHIFT) * DITHER_CHANNELS, 0, (5 SHR DITHER_AMPLITUDE_SHIFT) * DITHER_CHANNELS
 
 .data
 framebuffer_bitmap_info             BITMAPINFOHEADER <SIZEOF BITMAPINFOHEADER, SCREEN_WIDTH_PX, -SCREEN_HEIGHT_PX, 1, 32, BI_RGB>
@@ -49,7 +78,9 @@ framebuffer_bitmap_info             BITMAPINFOHEADER <SIZEOF BITMAPINFOHEADER, S
 ALIGN 16
 framebuffer_bgra                    DWORD SCREEN_PIXEL_COUNT DUP (?)
 chroma_row_bgra                     DWORD SCREEN_WIDTH_PX + 2 * CHROMA_ROW_PADDING_PX DUP (?)
+palette_lut                         BYTE PALETTE_LUT_ENTRY_COUNT DUP (?)
 window_dc                           QWORD ?
+screen_impact_frames_left           DWORD ?
 
 .code
 
@@ -66,6 +97,162 @@ color_scale PROC
     movd eax, xmm0
     ret
 color_scale ENDP
+
+color_lerp PROC
+    assert_below_unsigned r8d, COLOR_LEVEL_FULL + 1
+    movd xmm0, ecx
+    movd xmm1, edx
+    pxor xmm2, xmm2
+    punpcklbw xmm0, xmm2
+    punpcklbw xmm1, xmm2
+    psubw xmm1, xmm0
+    shr r8d, COLOR_LEVEL_SHIFT - LERP_LEVEL_SHIFT
+    movd xmm3, r8d
+    pshuflw xmm3, xmm3, 0
+    pmullw xmm1, xmm3
+    psraw xmm1, LERP_LEVEL_SHIFT
+    paddw xmm0, xmm1
+    packuswb xmm0, xmm2
+    movd eax, xmm0
+    ret
+color_lerp ENDP
+
+palette_lut_build PROC
+    push rbx
+    push rsi
+    push rdi
+    push r12
+    push r13
+    push r14
+    lea rdi, palette_lut
+    lea r12, palette_sweetie16_bgra
+    xor ebx, ebx
+palette_lut_build_entry:
+    mov r8d, ebx
+    shr r8d, 2 * PALETTE_LUT_CHANNEL_BITS
+    and r8d, PALETTE_LUT_CHANNEL_MASK
+    shl r8d, PALETTE_LUT_LEVEL_TO_CHANNEL_SHIFT
+    add r8d, PALETTE_LUT_LEVEL_CENTER
+    mov r9d, ebx
+    shr r9d, PALETTE_LUT_CHANNEL_BITS
+    and r9d, PALETTE_LUT_CHANNEL_MASK
+    shl r9d, PALETTE_LUT_LEVEL_TO_CHANNEL_SHIFT
+    add r9d, PALETTE_LUT_LEVEL_CENTER
+    mov r10d, ebx
+    and r10d, PALETTE_LUT_CHANNEL_MASK
+    shl r10d, PALETTE_LUT_LEVEL_TO_CHANNEL_SHIFT
+    add r10d, PALETTE_LUT_LEVEL_CENTER
+    mov r13d, 7FFFFFFFh
+    xor r14d, r14d
+    xor esi, esi
+palette_lut_build_color:
+    mov ecx, dword ptr [r12 + rsi * 4]
+    mov eax, ecx
+    shr eax, 16
+    and eax, 0FFh
+    sub eax, r8d
+    imul eax, eax
+    imul eax, eax, PALETTE_DISTANCE_RED_WEIGHT
+    mov edx, ecx
+    shr edx, 8
+    and edx, 0FFh
+    sub edx, r9d
+    imul edx, edx
+    imul edx, edx, PALETTE_DISTANCE_GREEN_WEIGHT
+    add eax, edx
+    and ecx, 0FFh
+    sub ecx, r10d
+    imul ecx, ecx
+    imul ecx, ecx, PALETTE_DISTANCE_BLUE_WEIGHT
+    add eax, ecx
+    cmp eax, r13d
+    jae palette_lut_build_color_next
+    mov r13d, eax
+    mov r14d, esi
+palette_lut_build_color_next:
+    inc esi
+    cmp esi, PALETTE_COLOR_COUNT
+    jb palette_lut_build_color
+    mov byte ptr [rdi + rbx], r14b
+    inc ebx
+    cmp ebx, PALETTE_LUT_ENTRY_COUNT
+    jb palette_lut_build_entry
+    pop r14
+    pop r13
+    pop r12
+    pop rdi
+    pop rsi
+    pop rbx
+    ret
+palette_lut_build ENDP
+
+framebuffer_palette_quantize PROC
+    push rbx
+    push rsi
+    push rdi
+    push r12
+    lea rsi, framebuffer_bgra
+    lea rdi, palette_lut
+    lea r12, palette_sweetie16_bgra
+    xor ebx, ebx
+framebuffer_palette_quantize_row:
+    mov eax, ebx
+    and eax, DITHER_ROW_COUNT - 1
+    shl eax, 4
+    lea rcx, dither_add_rows
+    movdqa xmm4, xmmword ptr [rcx + rax]
+    lea rcx, dither_sub_rows
+    movdqa xmm5, xmmword ptr [rcx + rax]
+    mov r8d, SCREEN_WIDTH_PX / 4
+framebuffer_palette_quantize_four_pixels:
+    movdqa xmm0, xmmword ptr [rsi]
+    paddusb xmm0, xmm4
+    psubusb xmm0, xmm5
+    mov r9d, 4
+framebuffer_palette_quantize_pixel:
+    movd eax, xmm0
+    mov ecx, eax
+    shr ecx, PALETTE_LUT_RED_SHIFT
+    and ecx, PALETTE_LUT_RED_MASK
+    mov edx, eax
+    shr edx, PALETTE_LUT_GREEN_SHIFT
+    and edx, PALETTE_LUT_GREEN_MASK
+    or ecx, edx
+    shr eax, PALETTE_LUT_LEVEL_TO_CHANNEL_SHIFT
+    and eax, PALETTE_LUT_CHANNEL_MASK
+    or ecx, eax
+    movzx eax, byte ptr [rdi + rcx]
+    mov eax, dword ptr [r12 + rax * 4]
+    mov dword ptr [rsi], eax
+    add rsi, 4
+    psrldq xmm0, 4
+    dec r9d
+    jnz framebuffer_palette_quantize_pixel
+    dec r8d
+    jnz framebuffer_palette_quantize_four_pixels
+    inc ebx
+    cmp ebx, SCREEN_HEIGHT_PX
+    jb framebuffer_palette_quantize_row
+    pop r12
+    pop rdi
+    pop rsi
+    pop rbx
+    ret
+framebuffer_palette_quantize ENDP
+
+framebuffer_invert PROC
+    lea rcx, framebuffer_bgra
+    mov edx, SCREEN_PIXEL_COUNT / 4
+    movdqa xmm1, xmmword ptr pixel_rgb_mask_x4
+framebuffer_invert_four_pixels:
+    movdqa xmm0, xmmword ptr [rcx]
+    pxor xmm0, xmm1
+    movdqa xmmword ptr [rcx], xmm0
+    add rcx, 16
+    dec edx
+    jnz framebuffer_invert_four_pixels
+    ret
+framebuffer_invert ENDP
 
 framebuffer_rows_fill PROC
     push rdi
@@ -384,7 +571,7 @@ frame_post_effects PROC
 frame_post_effects_chroma:
     mov eax, screen_chroma_ticks_left
     test eax, eax
-    jz frame_post_effects_done
+    jz frame_post_effects_impact
     add eax, CHROMA_TICKS_PER_PX - 1
     xor edx, edx
     mov ecx, CHROMA_TICKS_PER_PX
@@ -394,7 +581,13 @@ frame_post_effects_chroma:
     cmova eax, ecx
     mov ecx, eax
     call framebuffer_chromatic_split
-frame_post_effects_done:
+frame_post_effects_impact:
+    cmp screen_impact_frames_left, 0
+    je frame_post_effects_quantize
+    dec screen_impact_frames_left
+    call framebuffer_invert
+frame_post_effects_quantize:
+    call framebuffer_palette_quantize
     add rsp, FRAME_4_ARGS_EVEN_PUSHES_BYTES
     ret
 frame_post_effects ENDP

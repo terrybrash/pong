@@ -5,6 +5,7 @@ INCLUDE audio.inc
 INCLUDE framebuffer.inc
 INCLUDE text.inc
 INCLUDE camera.inc
+INCLUDE raster.inc
 INCLUDE juice.inc
 INCLUDE characters.inc
 INCLUDE arena.inc

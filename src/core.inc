@@ -27,13 +27,30 @@ SIM_TICKS_PER_SEC                   equ 120
 SIM_TICKS_BEHIND_MAX                equ 8
 PERCENT_COUNT                       equ 100
 
-COLOR_BLACK_BGRA                    equ 00000000h
-COLOR_WHITE_BGRA                    equ 00F0F0F0h
-COLOR_GOLD_BGRA                     equ 00FFD040h
-COLOR_FLAME_BGRA                    equ 00FF7830h
-COLOR_TEXT_BRIGHT_BGRA              equ 00D0D0E0h
-COLOR_TEXT_DIM_BGRA                 equ 00808090h
-COLOR_COMBO_BGRA                    equ 00FFE070h
+PALETTE_NIGHT_BGRA                  equ 001A1C2Ch
+PALETTE_PLUM_BGRA                   equ 005D275Dh
+PALETTE_RED_BGRA                    equ 00B13E53h
+PALETTE_ORANGE_BGRA                 equ 00EF7D57h
+PALETTE_YELLOW_BGRA                 equ 00FFCD75h
+PALETTE_LIME_BGRA                   equ 00A7F070h
+PALETTE_GREEN_BGRA                  equ 0038B764h
+PALETTE_TEAL_BGRA                   equ 00257179h
+PALETTE_NAVY_BGRA                   equ 0029366Fh
+PALETTE_BLUE_BGRA                   equ 003B5DC9h
+PALETTE_SKY_BGRA                    equ 0041A6F6h
+PALETTE_CYAN_BGRA                   equ 0073EFF7h
+PALETTE_WHITE_BGRA                  equ 00F4F4F4h
+PALETTE_SILVER_BGRA                 equ 0094B0C2h
+PALETTE_SLATE_BGRA                  equ 00566C86h
+PALETTE_DUSK_BGRA                   equ 00333C57h
+PALETTE_COLOR_COUNT                 equ 16
+COLOR_BLACK_BGRA                    equ PALETTE_NIGHT_BGRA
+COLOR_WHITE_BGRA                    equ PALETTE_WHITE_BGRA
+COLOR_GOLD_BGRA                     equ PALETTE_YELLOW_BGRA
+COLOR_FLAME_BGRA                    equ PALETTE_ORANGE_BGRA
+COLOR_TEXT_BRIGHT_BGRA              equ PALETTE_SILVER_BGRA
+COLOR_TEXT_DIM_BGRA                 equ PALETTE_SLATE_BGRA
+COLOR_COMBO_BGRA                    equ PALETTE_YELLOW_BGRA
 COLOR_NONE_BGRA                     equ 00000000h
 COLOR_ALPHA_MASK                    equ 0FF000000h
 TEXT_COLOR_RAINBOW                  equ 0FF000000h
@@ -54,10 +71,11 @@ MATCH_MODE_CHARACTER_SELECT         equ 0
 MATCH_MODE_SERVE_WAIT               equ 1
 MATCH_MODE_RALLY                    equ 2
 MATCH_MODE_POINT_SCORED             equ 3
-MATCH_MODE_UPGRADE_CHOOSE           equ 4
-MATCH_MODE_UPGRADE_TAKEN            equ 5
-MATCH_MODE_OVER                     equ 6
-MATCH_MODE_COUNT                    equ 7
+MATCH_MODE_LEVEL_UP                 equ 4
+MATCH_MODE_UPGRADE_CHOOSE           equ 5
+MATCH_MODE_UPGRADE_TAKEN            equ 6
+MATCH_MODE_OVER                     equ 7
+MATCH_MODE_COUNT                    equ 8
 
 SIDE_NEAR                           equ 0
 SIDE_FAR                            equ 1
@@ -82,6 +100,17 @@ UPGRADE_OFFER_COUNT                 equ 3
 
 CHARACTER_COUNT                     equ 4
 GHOST_COUNT                         equ 4
+POSE_RENDER_SOLID                   equ 0
+POSE_RENDER_WIREFRAME               equ 1
+POSE_RENDER_COUNT                   equ 2
+POSE_ACTION_MOVE                    equ 0
+POSE_ACTION_DASH                    equ 1
+POSE_ACTION_CHEER                   equ 2
+POSE_ACTION_SLUMP                   equ 3
+POSE_ACTION_POWER_CHARGE            equ 4
+POSE_ACTION_POWER_ROAR              equ 5
+POSE_ACTION_DANCE                   equ 6
+POSE_ACTION_COUNT                   equ 7
 
 VIRTUAL_KEY_COUNT                   equ 256
 VK_LBUTTON                          equ 01h
@@ -319,6 +348,7 @@ PLAYER STRUCT
     ghost_z_u                       REAL4 GHOST_COUNT DUP (?)
     ghost_ticks_left                DWORD GHOST_COUNT DUP (?)
     ghost_next_index                DWORD ?
+    spin_ticks_left                 DWORD ?
     score                           DWORD ?
     score_shown                     DWORD ?
     score_pop_ticks_left            DWORD ?
@@ -332,8 +362,12 @@ POSE STRUCT
     walk_phase_radians              REAL4 ?
     walk_amount                     REAL4 ?
     swing_fraction                  REAL4 ?
+    spin_radians                    REAL4 ?
     character_index                 DWORD ?
     color_override_bgra             DWORD ?
+    render_mode                     DWORD ?
+    action                          DWORD ?
+    action_ticks                    DWORD ?
 POSE ENDS
 
 .const
@@ -351,12 +385,16 @@ float_inverse_two_pi                REAL4 0.15915494
 float_ticks_per_second              REAL4 120.0
 tick_seconds                        REAL4 0.0083333333
 random_unit_float_scale             REAL4 5.9604645e-8
-rainbow_color_bgra                  DWORD 00FF0000h, 00FF5F00h, 00FFBF00h, 00DFFF00h, 007FFF00h, 001FFF00h, 0000FF3Fh, 0000FF9Fh
-                                    DWORD 0000FFFFh, 00009FFFh, 00003FFFh, 001F00FFh, 007F00FFh, 00DF00FFh, 00FF00BFh, 00FF005Fh
+rainbow_color_bgra                  DWORD PALETTE_RED_BGRA, PALETTE_ORANGE_BGRA, PALETTE_YELLOW_BGRA, PALETTE_LIME_BGRA, PALETTE_GREEN_BGRA, PALETTE_CYAN_BGRA, PALETTE_SKY_BGRA, PALETTE_BLUE_BGRA
+                                    DWORD PALETTE_PLUM_BGRA, PALETTE_RED_BGRA, PALETTE_ORANGE_BGRA, PALETTE_YELLOW_BGRA, PALETTE_WHITE_BGRA, PALETTE_CYAN_BGRA, PALETTE_SKY_BGRA, PALETTE_PLUM_BGRA
 rainbow_color_bgra_end              LABEL DWORD
 .ERRNZ (rainbow_color_bgra_end - rainbow_color_bgra) - 4 * RAINBOW_COLOR_COUNT
-side_color_bgra                     DWORD 0040C8FFh, 00FF7040h
+side_color_bgra                     DWORD PALETTE_SKY_BGRA, PALETTE_ORANGE_BGRA
 .ERRNZ LENGTHOF side_color_bgra - SIDE_COUNT
+palette_sweetie16_bgra              DWORD PALETTE_NIGHT_BGRA, PALETTE_PLUM_BGRA, PALETTE_RED_BGRA, PALETTE_ORANGE_BGRA, PALETTE_YELLOW_BGRA, PALETTE_LIME_BGRA, PALETTE_GREEN_BGRA, PALETTE_TEAL_BGRA
+                                    DWORD PALETTE_NAVY_BGRA, PALETTE_BLUE_BGRA, PALETTE_SKY_BGRA, PALETTE_CYAN_BGRA, PALETTE_WHITE_BGRA, PALETTE_SILVER_BGRA, PALETTE_SLATE_BGRA, PALETTE_DUSK_BGRA
+palette_sweetie16_bgra_end          LABEL DWORD
+.ERRNZ (palette_sweetie16_bgra_end - palette_sweetie16_bgra) - 4 * PALETTE_COLOR_COUNT
 
 .data?
 random_state                        DWORD ?
